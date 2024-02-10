@@ -44,7 +44,7 @@ impl CliOpts {
                 };
 
                 let file_path = config::init_at(&target)?;
-                println!("Created new config file at: {:?}", file_path);
+                println!("\x1b[92mCreated new config file at `{}`\x1b[0m", file_path);
             }
         }
 

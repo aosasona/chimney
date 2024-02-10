@@ -8,6 +8,18 @@ use std::{
 
 use crate::error::ChimneyError;
 
+macro_rules! absolute_path_str {
+    ($path:expr) => {
+        match $path.absolutize() {
+            Ok(p) => p.to_string_lossy().to_string(),
+            Err(e) => {
+                eprintln!("\x1b[93m[WARNING] {}\x1b[0m", e);
+                $path.to_string_lossy().to_string()
+            }
+        }
+    };
+}
+
 const CONFIG_TEMPLATE: &str = r#"host = "127.0.0.0"
 port = 80
 domain_names = [] # the domain names that the server will respond to
@@ -93,24 +105,21 @@ impl Config {
     }
 }
 
-pub fn init_at(path: &PathBuf) -> Result<PathBuf, ChimneyError> {
+pub fn init_at(path: &PathBuf) -> Result<String, ChimneyError> {
     if !path.is_dir() {
-        return Err(ChimneyError::TargetDirNotExists(to_abs_path_str(
-            path.clone(),
-        )));
+        return Err(ChimneyError::TargetDirNotExists(absolute_path_str!(path)));
     }
 
     let file_path = path.join("chimney.toml");
-
     if file_path.exists() {
-        return Err(ChimneyError::ConfigAlreadyExists(to_abs_path_str(
-            path.clone(),
+        return Err(ChimneyError::ConfigAlreadyExists(absolute_path_str!(
+            file_path
         )));
     }
 
     fs::write(&file_path, CONFIG_TEMPLATE).map_err(|e| ChimneyError::FailedToWriteConfig(e))?;
 
-    Ok(file_path)
+    Ok(absolute_path_str!(file_path))
 }
 
 pub fn read_from_path(config_path: &PathBuf) -> Result<Config, ChimneyError> {
@@ -124,10 +133,4 @@ pub fn read_from_path(config_path: &PathBuf) -> Result<Config, ChimneyError> {
         fs::read_to_string(config_path).map_err(|e| ChimneyError::FailedToReadConfig(e))?;
 
     return toml::from_str(&raw_config).map_err(|e| ChimneyError::InvalidConfig(e));
-}
-
-fn to_abs_path_str(path: PathBuf) -> String {
-    path.absolutize()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| path.to_string_lossy().to_string())
 }
