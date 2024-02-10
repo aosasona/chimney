@@ -1,5 +1,5 @@
 use crate::{config::Config, error::ChimneyError};
 
-pub fn run(config: Config) -> Result<(), ChimneyError> {
-    unimplemented!()
+pub fn run(_config: Config) -> Result<(), ChimneyError> {
+    Ok(())
 }

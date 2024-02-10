@@ -1,4 +1,4 @@
-use crate::{config, config::Config, error::ChimneyError, server};
+use crate::{config, error::ChimneyError, server};
 use clap::{Parser, Subcommand};
 use std::{env, path::PathBuf};
 
@@ -8,8 +8,9 @@ pub enum Commands {
     Run,
 
     /// Create a new chimney configuration file in the target directory
+    #[command(arg_required_else_help = true)]
     Init {
-        #[arg(short, long)]
+        #[arg(value_name = "TARGET_DIR", required = false)]
         target_dir: Option<PathBuf>,
     },
 }
@@ -28,7 +29,7 @@ pub fn parse_args() -> CliOpts {
 }
 
 impl CliOpts {
-    pub fn run(self: &Self, _config: &Config) -> Result<(), ChimneyError> {
+    pub fn run(self: &Self) -> Result<(), ChimneyError> {
         match &self.command {
             Commands::Run => {
                 let config = config::read_from_path(&self.config_path)?;
@@ -37,8 +38,9 @@ impl CliOpts {
             Commands::Init { target_dir } => {
                 let target = match target_dir {
                     Some(s) => s.clone(),
-                    None => env::current_dir()
-                        .map_err(|e| ChimneyError::FailedToGetWorkingDir { source: e })?,
+                    None => {
+                        env::current_dir().map_err(|e| ChimneyError::FailedToGetWorkingDir(e))?
+                    }
                 };
 
                 let file_path = config::init_at(&target)?;

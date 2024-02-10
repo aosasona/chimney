@@ -1,14 +1,13 @@
-use error::ChimneyError;
-
 mod commands;
 mod config;
 mod error;
 mod server;
 
-fn main() -> Result<(), ChimneyError> {
+fn main() {
     let command = commands::parse_args();
-    let config = config::read_from_path(&command.config_path)?;
-    command.run(&config)?;
 
-    Ok(())
+    if let Err(error) = command.run() {
+        eprintln!("\x1b[91m[Error] {}\x1b[0m", error);
+        return;
+    };
 }
