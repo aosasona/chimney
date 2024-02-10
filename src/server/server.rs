@@ -1,5 +1,6 @@
 use crate::{config::Config, error::ChimneyError};
 
-pub fn run(_config: Config) -> Result<(), ChimneyError> {
+pub fn run(config: Config) -> Result<(), ChimneyError> {
+    println!("{:?}", config);
     Ok(())
 }

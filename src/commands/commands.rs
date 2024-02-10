@@ -5,7 +5,15 @@ use std::{env, path::PathBuf};
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Start the server
-    Run,
+    Run {
+        #[arg(
+            short,
+            long,
+            value_name = "CONFIG_PATH",
+            default_value = "chimney.toml"
+        )]
+        config_path: PathBuf,
+    },
 
     /// Create a new chimney configuration file in the target directory
     #[command(arg_required_else_help = true)]
@@ -17,9 +25,6 @@ pub enum Commands {
 
 #[derive(Parser, Debug)]
 pub struct CliOpts {
-    #[clap(short, long, default_value = "chimney.toml")]
-    pub config_path: PathBuf,
-
     #[clap(subcommand)]
     pub command: Commands,
 }
@@ -31,8 +36,8 @@ pub fn parse_args() -> CliOpts {
 impl CliOpts {
     pub fn run(self: &Self) -> Result<(), ChimneyError> {
         match &self.command {
-            Commands::Run => {
-                let config = config::read_from_path(&self.config_path)?;
+            Commands::Run { config_path } => {
+                let config = config::read_from_path(&mut config_path.clone())?;
                 server::run(config)?;
             }
             Commands::Init { target_dir } => {
@@ -43,7 +48,7 @@ impl CliOpts {
                     }
                 };
 
-                let file_path = config::init_at(&target)?;
+                let file_path = config::init_at(&mut target.clone())?;
                 println!("\x1b[92mCreated new config file at `{}`\x1b[0m", file_path);
             }
         }

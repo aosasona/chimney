@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::error::ChimneyError;
+use crate::error::{ChimneyError, ChimneyError::*};
 
 macro_rules! absolute_path_str {
     ($path:expr) => {
@@ -105,32 +105,40 @@ impl Config {
     }
 }
 
-pub fn init_at(path: &PathBuf) -> Result<String, ChimneyError> {
+pub fn init_at(path: &mut PathBuf) -> Result<String, ChimneyError> {
     if !path.is_dir() {
-        return Err(ChimneyError::TargetDirNotExists(absolute_path_str!(path)));
+        return Err(TargetDirNotExists(absolute_path_str!(path)));
     }
 
-    let file_path = path.join("chimney.toml");
-    if file_path.exists() {
-        return Err(ChimneyError::ConfigAlreadyExists(absolute_path_str!(
-            file_path
-        )));
+    path.push("chimney.toml");
+    if path.exists() {
+        return Err(ConfigAlreadyExists(absolute_path_str!(path)));
     }
 
-    fs::write(&file_path, CONFIG_TEMPLATE).map_err(|e| ChimneyError::FailedToWriteConfig(e))?;
+    fs::write(&path, CONFIG_TEMPLATE).map_err(|e| FailedToWriteConfig(e))?;
 
-    Ok(absolute_path_str!(file_path))
+    Ok(absolute_path_str!(path))
 }
 
-pub fn read_from_path(config_path: &PathBuf) -> Result<Config, ChimneyError> {
-    if !config_path.exists() || !config_path.is_file() {
-        return Err(ChimneyError::ConfigNotFound(
-            config_path.to_string_lossy().to_string(),
-        ));
+pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError> {
+    // Try to find `chimney.toml` as a file or IN the target directory
+    let has_toml_extension = config_path.extension().map_or(false, |ext| ext == "toml");
+
+    if config_path.exists() && config_path.is_dir() {
+        config_path.push("chimney.toml");
     }
 
-    let raw_config =
-        fs::read_to_string(config_path).map_err(|e| ChimneyError::FailedToReadConfig(e))?;
+    if !config_path.exists() {
+        // We will pretend it is a directory if it doesn't have the `.toml` extension and return
+        // that error
+        if !has_toml_extension {
+            return Err(TargetDirNotExists(absolute_path_str!(config_path)));
+        }
 
-    return toml::from_str(&raw_config).map_err(|e| ChimneyError::InvalidConfig(e));
+        return Err(ConfigNotFound(absolute_path_str!(config_path)));
+    }
+
+    let raw_config = fs::read_to_string(config_path).map_err(|e| FailedToReadConfig(e))?;
+
+    return toml::from_str(&raw_config).map_err(|e| InvalidConfig(e));
 }

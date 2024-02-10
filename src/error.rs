@@ -23,7 +23,7 @@ pub enum ChimneyError {
     #[error("Invalid config file, reason: {0:?}")]
     InvalidConfig(toml::de::Error),
 
-    #[error("The target directory does not exist or is not a directory: {0:?}")]
+    #[error("The target directory does not exist or is not a directory: {0}")]
     TargetDirNotExists(String),
 }
 
