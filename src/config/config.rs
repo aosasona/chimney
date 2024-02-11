@@ -24,7 +24,7 @@ const CONFIG_TEMPLATE: &str = r#"host = "127.0.0.0"
 port = 80
 domain_names = [] # the domain names that the server will respond to
 enable_logging = true # if true, the server will log all requests to the console
-root_dir = "public" # the directory where the server will look for files to serve, relative to where this config file is located
+root_dir = "public" # the directory where the server will look for files to serve, relative to where this config file is located unless an absolute path is provided
 fallback_document = "index.html" # whenever a request doesn't match a file, the server will serve this file
 
 
@@ -39,7 +39,7 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # key_file = "" # if `local_cert` is false, this should be the path to the SSL key
 "#;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Https {
     #[serde(default = "Https::default_status")]
     enable: bool,
@@ -67,7 +67,7 @@ impl Https {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     #[serde(default = "Config::default_host")]
     pub host: IpAddr,

@@ -1,4 +1,4 @@
-use std::io::Error as StdError;
+use std::{io::Error as StdError, net::AddrParseError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -8,6 +8,9 @@ pub enum ChimneyError {
 
     #[error("Config file not found at the specified path `{0}`")]
     ConfigNotFound(String),
+
+    #[error("Failed to parse address ({0}), reason: {1:?}")]
+    FailedToParseAddress(String, AddrParseError),
 
     #[error(
         "Unable to get current working directory and no target directory provided, reason: {0:?}"
@@ -25,5 +28,11 @@ pub enum ChimneyError {
 
     #[error("The target directory does not exist or is not a directory: {0}")]
     TargetDirNotExists(String),
+
+    #[error("Failed to bind to the specified address, reason: {0:?}")]
+    FailedToBind(StdError),
+
+    #[error("Failed to accept connection, reason: {0:?}")]
+    FailedToAcceptConnection(StdError),
 }
 

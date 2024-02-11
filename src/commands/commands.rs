@@ -1,4 +1,4 @@
-use crate::{config, error::ChimneyError, server};
+use crate::{config, error::ChimneyError, server::Server};
 use clap::{Parser, Subcommand};
 use std::{env, path::PathBuf};
 
@@ -34,11 +34,12 @@ pub fn parse_args() -> CliOpts {
 }
 
 impl CliOpts {
-    pub fn run(self: &Self) -> Result<(), ChimneyError> {
+    pub async fn run(self: &Self) -> Result<(), ChimneyError> {
         match &self.command {
             Commands::Run { config_path } => {
                 let config = config::read_from_path(&mut config_path.clone())?;
-                server::run(config)?;
+                let server = Server::new(config);
+                server.run().await?;
             }
             Commands::Init { target_dir } => {
                 let target = match target_dir {
