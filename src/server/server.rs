@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 
 #[derive(Debug, Clone)]
 pub struct Server {
-    config: Config,
+    pub config: Config,
 }
 
 impl Server {
@@ -62,5 +62,6 @@ async fn serve_file(
     server: &Server,
     req: Request<hyper::body::Incoming>,
 ) -> HyperResult<Response<BoxBody<Bytes, std::io::Error>>> {
-    unimplemented!()
+    // let path = req.uri().path();
+    todo!()
 }

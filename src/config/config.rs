@@ -1,5 +1,6 @@
 use path_absolutize::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{
     fs,
     net::{IpAddr, Ipv4Addr},
@@ -37,7 +38,37 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 
 # cert_file = "" # if `local_cert` is false, this should be the path to the SSL certificate
 # key_file = "" # if `local_cert` is false, this should be the path to the SSL key
+
+[rewrites]
+# "/home" = { to = "/index.html", temporary = true } # if a request is made to /home, the server will serve /index.html instead, default redirect type is permanent (301)
+# "/page-2" = "another_page.html"
 "#;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum RewriteType {
+    Permanent,
+    Temporary,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Rewrite {
+    Config {
+        #[serde(default)]
+        to: String,
+
+        #[serde(default = "Rewrite::default_type")]
+        r#type: RewriteType,
+    },
+
+    Target(String),
+}
+
+impl Rewrite {
+    fn default_type() -> RewriteType {
+        return RewriteType::Permanent;
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Https {
@@ -89,6 +120,9 @@ pub struct Config {
 
     #[serde(default)]
     pub https: Option<Https>,
+
+    #[serde(default)]
+    pub rewrites: Option<HashMap<String, Rewrite>>,
 }
 
 impl Config {

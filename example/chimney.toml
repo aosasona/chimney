@@ -12,3 +12,7 @@ use_self_signed = true # if true, the server will use a self-signed certificate 
 # or you can use your own certificate for production use cases
 cert_file = "cert.pem" # if `local_cert` is false, this should be the path to the SSL certificate
 key_file = "key.pem" # if `local_cert` is false, this should be the path to the SSL key
+
+[rewrites]
+"/home" = { to = "/index.html", temporary = true } # if a request is made to /home, the server will serve /index.html instead, default redirect type is permanent (301)
+"/page-2" = "another_page.html"
