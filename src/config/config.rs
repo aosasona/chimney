@@ -40,6 +40,7 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # key_file = "" # if `local_cert` is false, this should be the path to the SSL key
 
 [rewrites]
+# the leading slash is required, if it is not present, the server will NOT recognize the path
 # "/home" = { to = "/index.html", temporary = true } # if a request is made to /home, the server will serve /index.html instead, default redirect type is permanent (301)
 # "/page-2" = "another_page.html"
 "#;
@@ -122,7 +123,7 @@ pub struct Config {
     pub https: Option<Https>,
 
     #[serde(default)]
-    pub rewrites: Option<HashMap<String, Rewrite>>,
+    pub rewrites: HashMap<String, Rewrite>,
 }
 
 impl Config {

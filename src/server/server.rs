@@ -1,6 +1,7 @@
 use crate::{
-    config::Config,
+    config::{Config, Rewrite},
     error::ChimneyError::{self, FailedToAcceptConnection, FailedToBind, FailedToParseAddress},
+    log_request,
     server::tokio_rt::TokioIo,
 };
 use bytes::Bytes;
@@ -58,10 +59,37 @@ impl Server {
         }
     }
 }
+
 async fn serve_file(
     server: &Server,
     req: Request<hyper::body::Incoming>,
 ) -> HyperResult<Response<BoxBody<Bytes, std::io::Error>>> {
-    // let path = req.uri().path();
+    let path = req.uri().path();
+
+    if server.config.enable_logging {
+        log_request!(&req);
+    }
+
+    // TODO: check for the existence of a rewrite rule for the requested path
+    let rewrite_key = if path.starts_with("/") {
+        path.to_string()
+    } else {
+        format!("/{}", path)
+    };
+
+    assert!(rewrite_key.starts_with("/"));
+
+    if let Some(rewrite) = server.config.rewrites.get(&rewrite_key) {
+        match rewrite {
+            Rewrite::Config {
+                to,
+                r#type: rewrite_type,
+            } => {}
+            Rewrite::Target(target) => {}
+        }
+    };
+
+    // TODO: check for the existence of a file at the requested path
+
     todo!()
 }

@@ -3,6 +3,8 @@ mod config;
 mod error;
 mod server;
 
+mod log_macros;
+
 #[tokio::main]
 async fn main() {
     let command = commands::parse_args();
