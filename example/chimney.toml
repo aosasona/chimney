@@ -15,5 +15,5 @@ key_file = "key.pem" # if `local_cert` is false, this should be the path to the 
 
 [rewrites]
 # the leading slash is required, if it is not present, the server will NOT recognize the path
-"/home" = { to = "/index.html", temporary = true } # if a request is made to /home, the server will serve /index.html instead, default redirect type is permanent (301)
-"/page-2" = "another_page.html"
+"/home" = { to = "/index.html" } # if a request is made to /home, the server will serve /index.html instead
+"/page-2" = "another_page.html" # this is relative to the root directory, so it will serve public/another_page.html

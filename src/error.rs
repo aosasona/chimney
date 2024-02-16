@@ -34,5 +34,7 @@ pub enum ChimneyError {
 
     #[error("Failed to accept connection, reason: {0:?}")]
     FailedToAcceptConnection(StdError),
-}
 
+    #[error("Root directory not set in the config file, this is required for the server to run")]
+    RootDirNotSet,
+}

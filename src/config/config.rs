@@ -1,3 +1,4 @@
+#![deny(clippy::implicit_return)]
 use path_absolutize::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -41,34 +42,20 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 
 [rewrites]
 # the leading slash is required, if it is not present, the server will NOT recognize the path
-# "/home" = { to = "/index.html", temporary = true } # if a request is made to /home, the server will serve /index.html instead, default redirect type is permanent (301)
-# "/page-2" = "another_page.html"
+# "/home" = { to = "/index.html" } # if a request is made to /home, the server will serve /index.html instead
+# "/page-2" = "another_page.html" # this is relative to the root directory, so if the root directory is `public`, the server will serve `public/another_page.html` instead
 "#;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum RewriteType {
-    Permanent,
-    Temporary,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Rewrite {
+    // This will take other config options in the future, that is why it is a struct
     Config {
         #[serde(default)]
         to: String,
-
-        #[serde(default = "Rewrite::default_type")]
-        r#type: RewriteType,
     },
 
     Target(String),
-}
-
-impl Rewrite {
-    fn default_type() -> RewriteType {
-        return RewriteType::Permanent;
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -113,8 +100,8 @@ pub struct Config {
     #[serde(default = "Config::default_logging_flag")]
     pub enable_logging: bool,
 
-    #[serde(default)]
-    pub root_dir: Option<String>,
+    #[serde(default = "Config::default_root_dir")]
+    pub root_dir: String,
 
     #[serde(default)]
     pub falback_document: Option<String>,
@@ -128,15 +115,19 @@ pub struct Config {
 
 impl Config {
     fn default_host() -> IpAddr {
-        IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
+        return IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
     }
 
     fn default_port() -> u16 {
-        80
+        return 80;
     }
 
     fn default_logging_flag() -> bool {
-        true
+        return true;
+    }
+
+    fn default_root_dir() -> String {
+        return "public".to_string();
     }
 }
 
@@ -173,7 +164,25 @@ pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError>
         return Err(ConfigNotFound(absolute_path_str!(config_path)));
     }
 
-    let raw_config = fs::read_to_string(config_path).map_err(|e| FailedToReadConfig(e))?;
+    let raw_config = fs::read_to_string(config_path.clone()).map_err(|e| FailedToReadConfig(e))?;
 
-    return toml::from_str(&raw_config).map_err(|e| InvalidConfig(e));
+    let mut config: Config = toml::from_str(&raw_config).map_err(|e| InvalidConfig(e))?;
+
+    if config.root_dir.is_empty() {
+        return Err(RootDirNotSet);
+    }
+
+    // Expand the root directory to an absolute path
+    let current_dir = std::env::current_dir().map_err(|e| FailedToGetWorkingDir(e))?;
+
+    let parent_dir = if let Some(p) = config_path.parent() {
+        p
+    } else {
+        &current_dir.as_path()
+    };
+
+    config.root_dir = absolute_path_str!(parent_dir.join(config.root_dir.clone()));
+    dbg!(&config);
+
+    return Ok(config);
 }

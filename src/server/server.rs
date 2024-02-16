@@ -64,30 +64,29 @@ async fn serve_file(
     server: &Server,
     req: Request<hyper::body::Incoming>,
 ) -> HyperResult<Response<BoxBody<Bytes, std::io::Error>>> {
-    let path = req.uri().path();
+    let mut target = req.uri().path();
 
     if server.config.enable_logging {
         log_request!(&req);
     }
 
     // TODO: check for the existence of a rewrite rule for the requested path
-    let rewrite_key = if path.starts_with("/") {
-        path.to_string()
-    } else {
-        format!("/{}", path)
-    };
+    if server.config.rewrites.len() > 0 {
+        let rewrite_key = if target.starts_with("/") {
+            target.to_string()
+        } else {
+            format!("/{}", target)
+        };
 
-    assert!(rewrite_key.starts_with("/"));
+        assert!(rewrite_key.starts_with("/"));
 
-    if let Some(rewrite) = server.config.rewrites.get(&rewrite_key) {
-        match rewrite {
-            Rewrite::Config {
-                to,
-                r#type: rewrite_type,
-            } => {}
-            Rewrite::Target(target) => {}
-        }
-    };
+        if let Some(rewrite) = server.config.rewrites.get(&rewrite_key) {
+            target = match rewrite {
+                Rewrite::Config { to } => to,
+                Rewrite::Target(target) => target,
+            };
+        };
+    }
 
     // TODO: check for the existence of a file at the requested path
 
