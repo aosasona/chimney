@@ -1,4 +1,4 @@
-#![deny(clippy::implicit_return)]
+use crate::log_warning;
 use path_absolutize::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ macro_rules! absolute_path_str {
         match $path.absolutize() {
             Ok(p) => p.to_string_lossy().to_string(),
             Err(e) => {
-                eprintln!("\x1b[93m[WARNING] {}\x1b[0m", e);
+                log_warning!(format!("Failed to get absolute path: {}", e));
                 $path.to_string_lossy().to_string()
             }
         }
@@ -44,6 +44,11 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # the leading slash is required, if it is not present, the server will NOT recognize the path
 # "/home" = { to = "/index.html" } # if a request is made to /home, the server will serve /index.html instead
 # "/page-2" = "another_page.html" # this is relative to the root directory, so if the root directory is `public`, the server will serve `public/another_page.html` instead
+
+[headers]
+# these headers will be added to every response
+# "Cache-Control" = "no-cache, no-store, must-revalidate"
+# "Pragma" = "no-cache"
 "#;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -104,30 +109,33 @@ pub struct Config {
     pub root_dir: String,
 
     #[serde(default)]
-    pub falback_document: Option<String>,
+    pub fallback_document: Option<String>,
 
     #[serde(default)]
     pub https: Option<Https>,
 
     #[serde(default)]
     pub rewrites: HashMap<String, Rewrite>,
+
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
 }
 
 impl Config {
     fn default_host() -> IpAddr {
-        return IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+        IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
     }
 
     fn default_port() -> u16 {
-        return 80;
+        80
     }
 
     fn default_logging_flag() -> bool {
-        return true;
+        true
     }
 
     fn default_root_dir() -> String {
-        return "public".to_string();
+        "public".to_string()
     }
 }
 
@@ -141,7 +149,7 @@ pub fn init_at(path: &mut PathBuf) -> Result<String, ChimneyError> {
         return Err(ConfigAlreadyExists(absolute_path_str!(path)));
     }
 
-    fs::write(&path, CONFIG_TEMPLATE).map_err(|e| FailedToWriteConfig(e))?;
+    fs::write(&path, CONFIG_TEMPLATE).map_err(FailedToWriteConfig)?;
 
     Ok(absolute_path_str!(path))
 }
@@ -164,25 +172,24 @@ pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError>
         return Err(ConfigNotFound(absolute_path_str!(config_path)));
     }
 
-    let raw_config = fs::read_to_string(config_path.clone()).map_err(|e| FailedToReadConfig(e))?;
+    let raw_config = fs::read_to_string(config_path.clone()).map_err(FailedToReadConfig)?;
 
-    let mut config: Config = toml::from_str(&raw_config).map_err(|e| InvalidConfig(e))?;
+    let mut config: Config = toml::from_str(&raw_config).map_err(InvalidConfig)?;
 
     if config.root_dir.is_empty() {
         return Err(RootDirNotSet);
     }
 
     // Expand the root directory to an absolute path
-    let current_dir = std::env::current_dir().map_err(|e| FailedToGetWorkingDir(e))?;
+    let current_dir = std::env::current_dir().map_err(FailedToGetWorkingDir)?;
 
     let parent_dir = if let Some(p) = config_path.parent() {
         p
     } else {
-        &current_dir.as_path()
+        current_dir.as_path()
     };
 
     config.root_dir = absolute_path_str!(parent_dir.join(config.root_dir.clone()));
-    dbg!(&config);
 
-    return Ok(config);
+    Ok(config)
 }

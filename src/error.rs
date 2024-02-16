@@ -37,4 +37,7 @@ pub enum ChimneyError {
 
     #[error("Root directory not set in the config file, this is required for the server to run")]
     RootDirNotSet,
+
+    #[error("Failed to open file, reason: {0:?}")]
+    UnableToOpenFile(StdError),
 }

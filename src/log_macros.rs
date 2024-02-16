@@ -1,21 +1,43 @@
 #[macro_export]
 macro_rules! log_request {
     ($req:expr) => {
+        use chrono::prelude::*;
         use hyper::Request;
-        use std::time::SystemTime;
 
         let req = $req as &Request<hyper::body::Incoming>;
+        let utc_time = Utc::now().to_rfc3339();
 
-        if let Ok(unix_time) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-            println!(
-                "{}",
-                format!(
-                    r#"{{"time": {}, "method": "{}", "path": "{}"}}"#,
-                    unix_time.as_secs(),
-                    req.method(),
-                    req.uri().path(),
-                )
-            );
-        }
+        println!(
+            "[{}] {} {} - {}",
+            utc_time,
+            req.method(),
+            req.uri().path(),
+            req.headers()
+                .get("User-Agent")
+                .unwrap_or(&"Unknown".parse().unwrap())
+                .to_str()
+                .unwrap_or("Unknown")
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! log_error {
+    ($error:expr) => {
+        eprintln!("\x1b[91m[Error] {}\x1b[0m", $error);
+    };
+}
+
+#[macro_export]
+macro_rules! log_warning {
+    ($warning:expr) => {
+        eprintln!("\x1b[93m[WARNING] {}\x1b[0m", $warning);
+    };
+}
+
+#[macro_export]
+macro_rules! log_info {
+    ($info:expr) => {
+        println!("\x1b[92m[INFO] {}\x1b[0m", $info);
     };
 }

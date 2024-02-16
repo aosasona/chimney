@@ -1,4 +1,4 @@
-use crate::{config, error::ChimneyError, server::Server};
+use crate::{config, error::ChimneyError, log_info, server::Server};
 use clap::{Parser, Subcommand};
 use std::{env, path::PathBuf};
 
@@ -34,7 +34,7 @@ pub fn parse_args() -> CliOpts {
 }
 
 impl CliOpts {
-    pub async fn run(self: &Self) -> Result<(), ChimneyError> {
+    pub async fn run(&self) -> Result<(), ChimneyError> {
         match &self.command {
             Commands::Run { config_path } => {
                 let config = config::read_from_path(&mut config_path.clone())?;
@@ -44,13 +44,11 @@ impl CliOpts {
             Commands::Init { target_dir } => {
                 let target = match target_dir {
                     Some(s) => s.clone(),
-                    None => {
-                        env::current_dir().map_err(|e| ChimneyError::FailedToGetWorkingDir(e))?
-                    }
+                    None => env::current_dir().map_err(ChimneyError::FailedToGetWorkingDir)?,
                 };
 
                 let file_path = config::init_at(&mut target.clone())?;
-                println!("\x1b[92mCreated new config file at `{}`\x1b[0m", file_path);
+                log_info!(format!("Created new config file at `{}`", file_path));
             }
         }
 
