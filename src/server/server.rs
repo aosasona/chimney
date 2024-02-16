@@ -4,7 +4,6 @@ use crate::{
         self, FailedToAcceptConnection, FailedToBind, FailedToParseAddress, UnableToOpenFile,
     },
     log_error, log_info, log_request,
-    server::tokio_rt::TokioIo,
 };
 use bytes::Bytes;
 use futures_util::stream::TryStreamExt;
@@ -16,8 +15,9 @@ use hyper::{
     service::service_fn,
     Request, Response, Result as HyperResult, StatusCode,
 };
+use hyper_util::rt::TokioIo;
 use std::{net::SocketAddr, path::PathBuf, str::FromStr, sync::Arc};
-use tokio::{fs::File, net::TcpListener, pin, sync::Notify};
+use tokio::{fs::File, net::TcpListener, sync::Notify};
 use tokio_util::io::ReaderStream;
 
 #[derive(Debug, Clone)]
