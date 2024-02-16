@@ -38,6 +38,6 @@ macro_rules! log_warning {
 #[macro_export]
 macro_rules! log_info {
     ($info:expr) => {
-        println!("\x1b[92m[INFO] {}\x1b[0m", $info);
+        println!("\x1b[94m[INFO] {}\x1b[0m", $info);
     };
 }

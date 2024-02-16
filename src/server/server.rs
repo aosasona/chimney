@@ -16,27 +16,45 @@ use hyper::{
     service::service_fn,
     Request, Response, Result as HyperResult, StatusCode,
 };
-use std::{net::SocketAddr, path::PathBuf, str::FromStr};
-use tokio::{fs::File, net::TcpListener};
+use std::{net::SocketAddr, path::PathBuf, str::FromStr, sync::Arc};
+use tokio::{fs::File, net::TcpListener, pin, sync::Notify};
 use tokio_util::io::ReaderStream;
 
 #[derive(Debug, Clone)]
 pub struct Server {
     pub config: Config,
+    shutdown_signal: Arc<Notify>,
 }
 
 impl Server {
     pub fn new(config: Config) -> Self {
-        Server { config }
+        Server {
+            config,
+            shutdown_signal: Arc::new(Notify::new()),
+        }
     }
 
     pub async fn run(self) -> Result<(), ChimneyError> {
+        self.watch_for_shutdown_signal().await;
         self.listen().await?;
+
         Ok(())
     }
 
+    async fn watch_for_shutdown_signal(&self) {
+        let signal = self.shutdown_signal.clone();
+
+        tokio::spawn(async move {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to listen for shutdown signal");
+
+            signal.notify_one();
+        });
+    }
+
     // TODO: handle HTTPS (run a second server for HTTPS, and force redirect from HTTP to
-    // HTTPS)
+    // HTTPS if enabled)
     async fn listen(self) -> Result<(), ChimneyError> {
         let raw_addr = format!("{}:{}", self.config.host, self.config.port);
         let addr: SocketAddr = raw_addr
@@ -58,7 +76,9 @@ impl Server {
             tokio::spawn(async move {
                 let io = TokioIo::new(stream);
                 let service = service_fn(|req| serve_file(&self_clone, req));
-                if let Err(error) = http1::Builder::new().serve_connection(io, service).await {
+                let conn = http1::Builder::new().serve_connection(io, service);
+
+                if let Err(error) = conn.await {
                     log_error!(error);
                 }
             });
@@ -77,6 +97,7 @@ fn not_found() -> Response<BoxBody<Bytes, std::io::Error>> {
         .unwrap()
 }
 
+// TODO: cleanup
 async fn serve_file(
     server: &Server,
     req: Request<hyper::body::Incoming>,
@@ -118,7 +139,8 @@ async fn serve_file(
         } else {
             return Ok(not_found());
         }
-    }
+    };
+
     // impl: https://github.com/hyperium/hyper/blob/00a703a9ef268266f8a8f78540253cbb2dcc6a55/examples/send_file.rs#L67-L91
     let file = File::open(path).await.map_err(UnableToOpenFile);
     if file.is_err() {

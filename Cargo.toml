@@ -16,6 +16,6 @@ path-absolutize = "3.1.1"
 pin-project-lite = "0.2.13"
 serde = { version = "1.0.196", features = ["derive"] }
 thiserror = "1.0.56"
-tokio = { version = "1.36.0", features = ["net", "macros", "rt-multi-thread", "io-util", "time", "fs"] }
+tokio = { version = "1.36.0", features = ["net", "macros", "rt-multi-thread", "io-util", "time", "fs", "signal"] }
 tokio-util = { version = "0.7.10", features = ["codec", "io"] }
 toml = "0.8.10"

@@ -32,6 +32,7 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 
 # [https]
 # enable = false # if true, the server will use HTTPS
+# auto_redirect = true # if true, the server will redirect all HTTP requests to HTTPS
 # port = 443
 # use_self_signed = false # if true, the server will use a self-signed certificate for SSL
 
@@ -40,12 +41,12 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # cert_file = "" # if `local_cert` is false, this should be the path to the SSL certificate
 # key_file = "" # if `local_cert` is false, this should be the path to the SSL key
 
-[rewrites]
+# [rewrites]
 # the leading slash is required, if it is not present, the server will NOT recognize the path
 # "/home" = { to = "/index.html" } # if a request is made to /home, the server will serve /index.html instead
 # "/page-2" = "another_page.html" # this is relative to the root directory, so if the root directory is `public`, the server will serve `public/another_page.html` instead
 
-[headers]
+# [headers]
 # these headers will be added to every response
 # "Cache-Control" = "no-cache, no-store, must-revalidate"
 # "Pragma" = "no-cache"
@@ -67,6 +68,9 @@ pub enum Rewrite {
 pub struct Https {
     #[serde(default = "Https::default_status")]
     enable: bool,
+
+    #[serde(default)]
+    auto_redirect: bool,
 
     #[serde(default = "Https::default_port")]
     pub port: u16,
