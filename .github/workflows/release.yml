@@ -1,81 +1,44 @@
-name: release
+name: Create and publish a Docker image
 on:
   push:
     tags:
       - "v*"
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  build-release:
-    name: build-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        target:
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-musl
-          - x86_64-apple-darwin
-          - aarch64-apple-darwin
-        toolchain: [stable]
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            use-cross: true
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            use-cross: true
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            use-cross: false
-          - os: macos-11
-            target: aarch64-apple-darwin
-            use-cross: false
+  build-and-push-image:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         with:
-          toolchain: ${{ matrix.toolchain }}
-          target: ${{ matrix.target }}
-          override: true
-          default: true
-          profile: minimal
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Handle Rust dependencies caching
-        uses: Swatinem/rust-cache@v2
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          key: v1-${{ matrix.target }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: Build release binary
-        uses: actions-rs/cargo@v1
+      - name: Build and push Docker image (x86_64)
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
-          command: build
-          args: --release --target ${{ matrix.target }}
-          use-cross: ${{ matrix.use-cross }}
-
-      - name: Build archive
-        shell: bash
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-
-          ARCHIVE="chimney-$VERSION-${{ matrix.target }}.tar.gz"
-          cp "target/${{ matrix.target }}/release/chimney" "chimney"
-          tar -czvf "$ARCHIVE" "chimney"
-          rm chimney
-
-          openssl dgst -r -sha256 -out "$ARCHIVE".sha256 "$ARCHIVE"
-          openssl dgst -r -sha512 -out "$ARCHIVE".sha512 "$ARCHIVE"
-          echo "ASSET=$ARCHIVE" >> $GITHUB_ENV
-
-      - name: Upload release archive
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          prerelease: false
-          fail_on_unmatched_files: true
-          files: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET }}.sha256
-            ${{ env.ASSET }}.sha512
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ARCH=x86_64

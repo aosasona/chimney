@@ -3,7 +3,7 @@ FROM rust:1.76 AS builder
 
 ARG ARCH
 
-ENV ARCH=${ARCH:-aarch64}
+ENV ARCH=${ARCH:-x86_64}
 
 WORKDIR /source
 
@@ -18,7 +18,9 @@ RUN cargo build --target=${ARCH}-unknown-linux-musl --release
 #------- Copy into distroless image -------#
 FROM alpine:3.19.1
 
-ENV ARCH=${ARCH:-aarch64}
+ARG ARCH
+
+ENV ARCH=${ARCH:-x86_64}
 
 COPY --from=builder /source/target/${ARCH}-unknown-linux-musl/release/chimney /bin/chimney
 
