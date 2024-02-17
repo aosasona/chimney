@@ -16,24 +16,41 @@ use hyper::{
     Request, Response, Result as HyperResult, StatusCode,
 };
 use hyper_util::rt::TokioIo;
-use std::{net::SocketAddr, path::PathBuf, str::FromStr};
-use tokio::{fs::File, net::TcpListener};
+use std::{net::SocketAddr, path::PathBuf, str::FromStr, sync::Arc};
+use tokio::{fs::File, net::TcpListener, sync::Notify};
 use tokio_util::io::ReaderStream;
 
 #[derive(Debug, Clone)]
 pub struct Server {
     pub config: Config,
+    shutdown_signal: Arc<Notify>,
 }
 
 impl Server {
     pub fn new(config: Config) -> Self {
-        Server { config }
+        Server {
+            config,
+            shutdown_signal: Arc::new(Notify::new()),
+        }
     }
 
     pub async fn run(self) -> Result<(), ChimneyError> {
+        self.watch_for_shutdown_signal().await;
         self.listen().await?;
 
         Ok(())
+    }
+
+    async fn watch_for_shutdown_signal(&self) {
+        let signal = self.shutdown_signal.clone();
+
+        tokio::spawn(async move {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to listen for shutdown signal");
+
+            signal.notify_one();
+        });
     }
 
     // TODO: handle HTTPS (run a second server for HTTPS, and force redirect from HTTP to
@@ -52,19 +69,33 @@ impl Server {
         ));
 
         loop {
-            let (stream, _) = server.accept().await.map_err(FailedToAcceptConnection)?;
-
             let self_clone = self.clone();
 
-            tokio::spawn(async move {
-                let io = TokioIo::new(stream);
-                let service = service_fn(|req| serve_file(&self_clone, req));
-                let conn = http1::Builder::new().serve_connection(io, service);
+            tokio::select! {
+                _ = self.shutdown_signal.notified() => {
+                    println!("\n");
+                    log_info!("Shutting down server");
+                    return Ok(());
+                },
 
-                if let Err(error) = conn.await {
-                    log_error!(error);
+                res = server.accept() => {
+                    if let Err(error) = res {
+                        log_error!(error);
+                        return Err(FailedToAcceptConnection(error));
+                    }
+
+                    tokio::spawn(async move {
+                        let (stream, _) = res.unwrap();
+                        let io = TokioIo::new(stream);
+                        let service = service_fn(|req| serve_file(&self_clone, req));
+                        let conn = http1::Builder::new().serve_connection(io, service);
+
+                        if let Err(error) = conn.await {
+                            log_error!(error);
+                        }
+                    });
                 }
-            });
+            }
         }
     }
 }
