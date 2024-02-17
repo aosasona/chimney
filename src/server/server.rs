@@ -16,41 +16,24 @@ use hyper::{
     Request, Response, Result as HyperResult, StatusCode,
 };
 use hyper_util::rt::TokioIo;
-use std::{net::SocketAddr, path::PathBuf, str::FromStr, sync::Arc};
-use tokio::{fs::File, net::TcpListener, sync::Notify};
+use std::{net::SocketAddr, path::PathBuf, str::FromStr};
+use tokio::{fs::File, net::TcpListener};
 use tokio_util::io::ReaderStream;
 
 #[derive(Debug, Clone)]
 pub struct Server {
     pub config: Config,
-    shutdown_signal: Arc<Notify>,
 }
 
 impl Server {
     pub fn new(config: Config) -> Self {
-        Server {
-            config,
-            shutdown_signal: Arc::new(Notify::new()),
-        }
+        Server { config }
     }
 
     pub async fn run(self) -> Result<(), ChimneyError> {
-        self.watch_for_shutdown_signal().await;
         self.listen().await?;
 
         Ok(())
-    }
-
-    async fn watch_for_shutdown_signal(&self) {
-        let signal = self.shutdown_signal.clone();
-
-        tokio::spawn(async move {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("Failed to listen for shutdown signal");
-
-            signal.notify_one();
-        });
     }
 
     // TODO: handle HTTPS (run a second server for HTTPS, and force redirect from HTTP to
