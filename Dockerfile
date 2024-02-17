@@ -38,7 +38,7 @@ fallback_document = "index.html"' > /etc/chimney/chimney.toml
 # Create default index page
 RUN echo $'<h1>Hello, World!</h1>\n\
 <p>If you can see this page, you have successfully setup and started Chimney.</p>\n\
-<p>Copy your own config file to <b>`/chimney.toml`</b> and your static files to the <b>`/public` directory (unless you changed it) to serve your files.</p>' > /var/www/html/index.html
+<p>Copy your own config file to <b>`/chimney.toml`</b> and your static files to the <b>`/public`</b> directory (unless you changed it) to serve your files.</p>' > /var/www/html/index.html
 
 ENTRYPOINT ["/bin/chimney"]
 
