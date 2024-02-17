@@ -1,8 +1,7 @@
-ARG ARCH
-
 #------- Build the Rust binary -------#
 FROM rust:1.76 AS builder
 
+ARG ARCH
 
 ENV ARCH=${ARCH:-aarch64}
 

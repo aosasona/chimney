@@ -21,6 +21,8 @@ pub enum Commands {
         #[arg(value_name = "TARGET_DIR", required = false)]
         target_dir: Option<PathBuf>,
     },
+
+    Version,
 }
 
 #[derive(Parser, Debug)]
@@ -49,6 +51,10 @@ impl CliOpts {
 
                 let file_path = config::init_at(&mut target.clone())?;
                 log_info!(format!("Created new config file at `{}`", file_path));
+            }
+
+            Commands::Version => {
+                println!("chimney {}", env!("CARGO_PKG_VERSION"));
             }
         }
 
