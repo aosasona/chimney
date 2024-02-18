@@ -50,6 +50,10 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # these headers will be added to every response
 # "Cache-Control" = "no-cache, no-store, must-revalidate"
 # "Pragma" = "no-cache"
+
+# [redirects]
+# the leading slash is required, if it is not present, the server will NOT recognize the path
+# "/rick" = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # if a request is made to /rick, the server will redirect to the Rick Astley video
 "#;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -119,10 +123,13 @@ pub struct Config {
     pub https: Option<Https>,
 
     #[serde(default)]
+    pub headers: HashMap<String, String>,
+
+    #[serde(default)]
     pub rewrites: HashMap<String, Rewrite>,
 
     #[serde(default)]
-    pub headers: HashMap<String, String>,
+    pub redirects: HashMap<String, String>,
 }
 
 impl Config {
