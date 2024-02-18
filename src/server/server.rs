@@ -103,11 +103,7 @@ impl Server {
 fn not_found() -> Response<BoxBody<Bytes, std::io::Error>> {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
-        .body(
-            Full::new("Not Found".into())
-                .map_err(|e| match e {})
-                .boxed(),
-        )
+        .body(Full::new("".into()).map_err(|e| match e {}).boxed())
         .unwrap()
 }
 
