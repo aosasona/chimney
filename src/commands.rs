@@ -39,6 +39,13 @@ impl CliOpts {
     pub async fn run(&self) -> Result<(), ChimneyError> {
         match &self.command {
             Commands::Run { config_path } => {
+                // For use in a container, we need to make /etc/chimney the default config
+                // path too if the file doesn't exist, that is the default location for the config
+                // file in the image
+                let mut config_path = config_path.clone();
+                if !config_path.exists() {
+                    config_path = PathBuf::from("/etc/chimney/chimney.toml");
+                }
                 let config = config::read_from_path(&mut config_path.clone())?;
                 let server = Server::new(config);
                 server.run().await?;
