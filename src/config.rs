@@ -22,7 +22,7 @@ macro_rules! absolute_path_str {
     };
 }
 
-const CONFIG_TEMPLATE: &str = r#"host = "127.0.0.0"
+const CONFIG_TEMPLATE: &str = r#"host = "0.0.0.0"
 port = 80
 domain_names = [] # the domain names that the server will respond to
 enable_logging = true # if true, the server will log all requests to the console
@@ -54,6 +54,7 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # [redirects]
 # the leading slash is required, if it is not present, the server will NOT recognize the path
 # "/rick" = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # if a request is made to /rick, the server will redirect to the Rick Astley video
+# "/google" = { to = "https://google.com", replay = true } # replay here means that the server will ask the browser to replay the request to the new location (HTTP status 308)
 "#;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -63,6 +64,20 @@ pub enum Rewrite {
     Config {
         #[serde(default)]
         to: String,
+    },
+
+    Target(String),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Redirect {
+    Config {
+        #[serde(default)]
+        to: String,
+
+        #[serde(default)]
+        replay: bool,
     },
 
     Target(String),
@@ -129,7 +144,7 @@ pub struct Config {
     pub rewrites: HashMap<String, Rewrite>,
 
     #[serde(default)]
-    pub redirects: HashMap<String, String>,
+    pub redirects: HashMap<String, Redirect>,
 }
 
 impl Config {
