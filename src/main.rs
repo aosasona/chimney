@@ -1,8 +1,8 @@
-mod commands;
 mod config;
 mod error;
 mod server;
 
+mod commands;
 mod log_macros;
 
 #[tokio::main]
