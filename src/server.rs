@@ -92,7 +92,6 @@ impl Server {
 
             tokio::select! {
                 _ = self.shutdown_signal.notified() => {
-                    println!("\n");
                     log_info!("Shutting down server");
                     return Ok(());
                 },
