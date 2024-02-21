@@ -103,13 +103,16 @@ impl Server {
                     }
 
                     tokio::spawn(async move {
-                        let (stream, _) = res.unwrap();
-                        let io = TokioIo::new(stream);
-                        let service = service_fn(|req| serve_file(&self_clone, req));
-                        let conn = http1::Builder::new().serve_connection(io, service);
+                        if let Ok((stream, _)) = res {
+                            let io = TokioIo::new(stream);
+                            let service = service_fn(|req| serve_file(&self_clone, req));
+                            let conn = http1::Builder::new().serve_connection(io, service);
 
-                        if let Err(error) = conn.await {
-                            log_error!(error);
+                            if let Err(error) = conn.await {
+                                log_error!(error);
+                            }
+                        } else {
+                            log_error!("Failed to accept connection");
                         }
                     });
                 }
@@ -155,15 +158,13 @@ impl Server {
     }
 
     pub fn get_valid_file_path(&self, target: &str) -> Option<PathBuf> {
-        let path = PathBuf::from(&self.config.root_dir).join(target.trim_start_matches('/'));
+        let mut path = PathBuf::from(&self.config.root_dir).join(target.trim_start_matches('/'));
 
         if !path.exists() {
             if let Some(fallback) = self.config.fallback_document.clone() {
                 let fallback_path = PathBuf::from(&self.config.root_dir).join(fallback);
-                return if fallback_path.exists() {
-                    Some(fallback_path)
-                } else {
-                    None
+                if fallback_path.exists() && fallback_path.is_file() {
+                    path = fallback_path;
                 };
             }
         };
@@ -171,14 +172,16 @@ impl Server {
         if path.is_dir() {
             let directory_root_file = path.join("index.html");
 
-            return if directory_root_file.exists() {
-                Some(directory_root_file)
-            } else {
-                None
+            if directory_root_file.exists() && directory_root_file.is_file() {
+                path = directory_root_file;
             };
         }
 
-        Some(path)
+        if path.exists() && path.is_file() {
+            Some(path)
+        } else {
+            None
+        }
     }
 
     pub fn build_response(

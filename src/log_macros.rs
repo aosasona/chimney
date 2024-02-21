@@ -8,7 +8,7 @@ macro_rules! log_request {
         let utc_time = Utc::now().to_rfc3339();
 
         println!(
-            "[{}] {} {} - {}",
+            "\x1b[95m[{}]\x1b[0m {} {} - {}",
             utc_time,
             req.method(),
             req.uri().path(),
@@ -24,6 +24,7 @@ macro_rules! log_request {
 #[macro_export]
 macro_rules! log_error {
     ($error:expr) => {
+        dbg!(&$error);
         eprintln!("\x1b[91m[Error] {}\x1b[0m", $error);
     };
 }
