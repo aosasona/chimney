@@ -7,4 +7,5 @@
 
 #/target
 
-chimney.toml
+/chimney.toml
+!examples/**/chimney.toml
