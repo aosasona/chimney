@@ -3,7 +3,7 @@ use crate::{
     error::ChimneyError::{
         self, FailedToAcceptConnection, FailedToBind, FailedToParseAddress, UnableToOpenFile,
     },
-    log_error, log_info, log_request,
+    log_error, log_info, log_request, mimetype,
 };
 use bytes::Bytes;
 use futures_util::stream::TryStreamExt;
@@ -184,12 +184,12 @@ impl Server {
     pub fn build_response(
         &self,
         boxed_body: BoxBody<Bytes, std::io::Error>,
+        mime_type: String,
     ) -> Response<BoxBody<Bytes, std::io::Error>> {
         let mut response = Response::builder()
             .status(StatusCode::OK)
-            .header("Content-Type", "text/html") // TODO: fetch proper mimetype
-            .header("Server", "Chimney")
-            .header("X-Content-Type-Options", "nosniff");
+            .header("Content-Type", mime_type)
+            .header("Server", "Chimney");
 
         if let Some(headers) = response.headers_mut() {
             for (key, value) in self.config.headers.iter() {
@@ -259,6 +259,8 @@ async fn serve_file(
         }
     };
 
+    let mime_type = mimetype::from_pathbuf(&path);
+
     let file: File = match File::open(path).await.map_err(UnableToOpenFile) {
         Ok(file) => file,
         Err(error) => {
@@ -270,7 +272,7 @@ async fn serve_file(
     let reader_stream = ReaderStream::new(file);
     let boxed_body = StreamBody::new(reader_stream.map_ok(Frame::data)).boxed();
 
-    let response = server.build_response(boxed_body);
+    let response = server.build_response(boxed_body, mime_type);
 
     Ok(response)
 }
