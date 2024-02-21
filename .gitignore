@@ -9,3 +9,4 @@
 
 /chimney.toml
 !examples/**/chimney.toml
+!examples/**/.well-known/*
