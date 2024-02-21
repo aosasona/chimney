@@ -1,5 +1,6 @@
 mod config;
 mod error;
+mod mimetype;
 mod server;
 
 mod commands;
