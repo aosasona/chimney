@@ -1,8 +1,8 @@
 name: Build and publish archives
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
+  push:
+    tags:
+      - "*"
 
 jobs:
   # Build tar archives for all supported platforms
@@ -10,8 +10,14 @@ jobs:
     name: Build archives
     runs-on: ${{ matrix.os }}
 
+    permissions:
+      contents: write
+      packages: write
+
     strategy:
+      fail-fast: false
       matrix:
+        toolchain: [stable]
         include:
           - build: linux
             os: ubuntu-latest
@@ -33,10 +39,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
+          toolchain: ${{ matrix.toolchain }}
           targets: ${{ matrix.target }}
+          override: true
+          default: true
+          profile: minimal
+
+      - name: Handle Rust dependencies caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: v1-${{ matrix.target }}
 
       - name: Get the release version from the tag
         shell: bash
@@ -62,8 +77,11 @@ jobs:
           tar -czf "$dirname.tar.gz" "$dirname"
           echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
 
-      - name: Upload archives
-        uses: actions/upload-artifact@master
+      - name: Upload release archive
+        uses: softprops/action-gh-release@v1
         with:
-          name: ${{ env.ASSET }}
-          path: ${{ env.ASSET }}
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            ${{ env.ASSET }}
