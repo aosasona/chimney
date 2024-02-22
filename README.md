@@ -36,30 +36,47 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
+# Install pnpm package manager and install dependencies
 COPY package.json pnpm-lock.yaml .
 
 RUN npm install -g pnpm
 
 RUN pnpm install
 
+# Copy files needed for the build, source directory and public folder
 COPY astro.config.mjs tsconfig.json tailwind.config.cjs .
 
 COPY src src
 
 COPY public public
 
+# Build to static HTML
 RUN pnpm build
 
+# Use chimney as final run image
 FROM ghcr.io/aosasona/chimney:latest
 
+# Copy the result of the previous build process (HTML files and the asssets; JS, CSS, Images, GIFs etc) to the default public directory
 COPY --from=build /app/dist /var/www/html
 
+# Replace the default config with our custom config
 COPY chimney.toml /etc/chimney/chimney.toml
 
 EXPOSE 80
 
+# Start the proxy
 CMD ["run"]
 ```
+
+### Directories
+
+If you are using the official image, there are a few locations you might want to know about:
+
+| **Path**                    | **Description**                                                                                                                                                                                                                                                                                                                              |
+| :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/var/www/html`             | Similar to NGINX, this is where all your publicly available files should be, including any asset. This path was chosen since it is familiar to most people, you can change this by overriding the default config and setting `root_dir` to anywhere you want in the container                                                                |
+| `/etc/chimney/chimney.toml` | This is where the default config lives, you can change this by copying your own config to wherever you desire and writing CMD as ["run", "-c", "path/to/config"] in your custom Dockerfile                                                                                                                                                   |
+| `/bin/chimney`              | This is where the Chimney binary lives in the container, since the [ENTRYPOINT](https://github.com/aosasona/chimney/blob/0aa88f573f8b7688117f978e5439db789e9c8ae1/Dockerfile#L42-L44) has been set to this path, you can easily use the "docker run" command to execute commands in the container directly without specifying `/bin/chimney` |
 
 ## As a standalone binary
 
@@ -82,7 +99,7 @@ cargo build --release
 
 ```sh
 chimney init path/to/project
-chimney run -c path/to/project/chimney.toml
+chimney run -c path/to/project/chimney.toml # the config filename is optional, it looks for `chimney.toml` by default in the target directory
 ```
 
 ### Config reference
@@ -90,12 +107,12 @@ chimney run -c path/to/project/chimney.toml
 > [!WARNING]
 > HTTPS functionality has NOT been implemented yet, so using this standalone in production is kind of not feasible... unless you have some sort of central proxy and a bunch of containers running Chimney that you simply proxy requests to (you can probably tell what my usecase is...)
 
-| **Field**      | **Description**                                                                                                 |
-| :------------- | :-------------------------------------------------------------------------------------------------------------- |
-| `host`         | The IP address to bind to, default is `0.0.0.0`                                                                 |
-| `port`         | The (TCP) port to run the HTTP server on, default is `80`                                                       |
-| `domain_names` | The domain names that the server should respond to, this has also not been implemented yet and does nothing yet |
-|                | `type`: array                                                                                                   |
+| **Field**        | **type**  | **Description**                                                                                                 | **Default** |
+| :--------------- | :-------: | :-------------------------------------------------------------------------------------------------------------- | :---------: |
+| `host`           | `string`  | The IP address to bind to                                                                                       |  `0.0.0.0`  |
+| `port`           | `integer` | The (TCP) port to run the HTTP server on                                                                        |    `80`     |
+| `domain_names`   |  `array`  | The domain names that the server should respond to, this has also not been implemented yet and does nothing yet |     []      |
+| `enable_logging` | `boolean` | Enable/disable request logging (what gets logged is currently limited and not quite customisable)               |    true     |
 
 ## Why not \[this other proxy/server\]?
 
