@@ -1,8 +1,7 @@
 name: Build and publish archives
 on:
-  push:
-    tags:
-      - "*"
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
