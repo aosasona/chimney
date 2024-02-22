@@ -17,23 +17,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        target:
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+          - i686-unknown-linux-musl
         toolchain: [stable]
         include:
-          - build: linux
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-
           - build: macos
             os: macos-latest
             target: x86_64-apple-darwin
+            use-cross: false
+
+          - build: macos-aarch64
+            os: macos-11
+            target: aarch64-apple-darwin
+            use-cross: false
+
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            use-cross: true
 
           - build: aarch64
             os: ubuntu-latest
             target: aarch64-unknown-linux-musl
+            use-cross: true
 
           - build: i686
             os: ubuntu-latest
             target: i686-unknown-linux-musl
+            use-cross: true
 
     steps:
       - name: Checkout repository
@@ -43,15 +58,10 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
-          targets: ${{ matrix.target }}
+          target: ${{ matrix.target }}
           override: true
           default: true
           profile: minimal
-
-      - name: Handle Rust dependencies caching
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: v1-${{ matrix.target }}
 
       - name: Get the release version from the tag
         shell: bash
@@ -60,9 +70,9 @@ jobs:
       - name: Build binaries
         uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
           args: --verbose --release --target ${{ matrix.target }}
+          use-cross: ${{ matrix.use-cross }}
 
       - name: Build archive
         shell: bash
@@ -74,8 +84,13 @@ jobs:
 
           mv "target/${{ matrix.target }}/release/$name" "$dirname"
 
-          tar -czf "$dirname.tar.gz" "$dirname"
-          echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
+          ARCHIVE="$dirname.tar.gz"
+          tar -czf "$ARCHIVE" "$dirname"
+
+          openssl dgst -r -sha256 -out "$ARCHIVE".sha256 "$ARCHIVE"
+          openssl dgst -r -sha512 -out "$ARCHIVE".sha512 "$ARCHIVE"
+
+          echo "ASSET=$ARCHIVE" >> $GITHUB_ENV
 
       - name: Upload release archive
         uses: softprops/action-gh-release@v1
@@ -85,3 +100,5 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+            ${{ env.ASSET }}.sha512
