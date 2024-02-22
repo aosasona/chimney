@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Build binaries
         uses: actions-rs/cargo@v1
         with:
           use-cross: true
@@ -76,8 +76,8 @@ jobs:
             echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
           fi
 
-      - name: Upload the archives
-        uses: softprops/action-gh-release@v1
+      - name: Upload archives
+        uses: actions/upload-artifact@master
         with:
-          files: |
-            ${{ env.ASSET }}
+          name: ${{ env.ASSET }}
+          path: ${{ env.ASSET }}
