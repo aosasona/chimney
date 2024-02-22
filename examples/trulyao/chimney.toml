@@ -3,7 +3,7 @@ port = 80
 domain_names = [] # the domain names that the server will respond to
 enable_logging = true # if true, the server will log all requests to the console
 root_dir = "." # the directory where the server will look for files to serve, relative to where this config file is located unless an absolute path is provided
-fallback_document = "index.html" # whenever a request doesn't match a file, the server will serve this file
+fallback_document = "404.html"# whenever a request doesn't match a file, the server will serve this file
 
 
 # [https]
@@ -17,9 +17,12 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # cert_file = "" # if `local_cert` is false, this should be the path to the SSL certificate
 # key_file = "" # if `local_cert` is false, this should be the path to the SSL key
 
-# [rewrites]
+[rewrites]
 # the leading slash is required, if it is not present, the server will NOT recognize the path
-# "/home" = { to = "/index.html" } # if a request is made to /home, the server will serve /index.html instead
+"/x" = "/twitter"
+"/gleam" = "/blog/a-gleamy-exploration"
+"/stack" = "/blog/my-stack-2024"
+"/foo" = "/def-not-found"
 # "/page-2" = "another_page.html" # this is relative to the root directory, so if the root directory is `public`, the server will serve `public/another_page.html` instead
 
 # [headers]
@@ -27,7 +30,8 @@ fallback_document = "index.html" # whenever a request doesn't match a file, the 
 # "Cache-Control" = "no-cache, no-store, must-revalidate"
 # "Pragma" = "no-cache"
 
-# [redirects]
+[redirects]
 # the leading slash is required, if it is not present, the server will NOT recognize the path
+"/twitter" = "https://twitter.com/trulyao"
 # "/rick" = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # if a request is made to /rick, the server will redirect to the Rick Astley video
 # "/google" = { to = "https://google.com", replay = true } # replay here means that the server will ask the browser to replay the request to the new location (HTTP status 308)

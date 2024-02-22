@@ -45,6 +45,14 @@ macro_rules! empty_to_index {
     };
 }
 
+macro_rules! handle_redirect {
+    ($server:expr, $request_path:expr) => {
+        if let Some((to, replay)) = $server.find_redirect($request_path) {
+            return Ok(redirect(to, replay));
+        }
+    };
+}
+
 impl Server {
     pub fn new(config: Config) -> Self {
         Server {
@@ -103,13 +111,19 @@ impl Server {
                     }
 
                     tokio::spawn(async move {
-                        let (stream, _) = res.unwrap();
-                        let io = TokioIo::new(stream);
-                        let service = service_fn(|req| serve_file(&self_clone, req));
-                        let conn = http1::Builder::new().serve_connection(io, service);
+                        match res {
+                            Ok((stream, _)) => {
+                                let io = TokioIo::new(stream);
+                                let service = service_fn(|req| serve_file(&self_clone, req));
+                                let conn = http1::Builder::new().serve_connection(io, service);
 
-                        if let Err(error) = conn.await {
-                            log_error!(error);
+                                if let Err(error) = conn.await {
+                                    log_error!(error);
+                                }
+                            }
+                            Err(error) => {
+                                log_error!(error);
+                            }
                         }
                     });
                 }
@@ -155,15 +169,13 @@ impl Server {
     }
 
     pub fn get_valid_file_path(&self, target: &str) -> Option<PathBuf> {
-        let path = PathBuf::from(&self.config.root_dir).join(target.trim_start_matches('/'));
+        let mut path = PathBuf::from(&self.config.root_dir).join(target.trim_start_matches('/'));
 
         if !path.exists() {
             if let Some(fallback) = self.config.fallback_document.clone() {
                 let fallback_path = PathBuf::from(&self.config.root_dir).join(fallback);
-                return if fallback_path.exists() {
-                    Some(fallback_path)
-                } else {
-                    None
+                if fallback_path.exists() && fallback_path.is_file() {
+                    path = fallback_path;
                 };
             }
         };
@@ -171,14 +183,16 @@ impl Server {
         if path.is_dir() {
             let directory_root_file = path.join("index.html");
 
-            return if directory_root_file.exists() {
-                Some(directory_root_file)
-            } else {
-                None
+            if directory_root_file.exists() && directory_root_file.is_file() {
+                path = directory_root_file;
             };
         }
 
-        Some(path)
+        if path.exists() && path.is_file() {
+            Some(path)
+        } else {
+            None
+        }
     }
 
     pub fn build_response(
@@ -239,9 +253,7 @@ async fn serve_file(
 
     // Redirects take precedence over rewrites, we need to check for that first before any attempt
     // to normalize the path (with index.html for example) or rewrite it
-    if let Some((to, replay)) = server.find_redirect(request_path) {
-        return Ok(redirect(to, replay));
-    }
+    handle_redirect!(server, request_path);
 
     // We are not normalizing the path here because we want a rewrite for `/` to be possible
     // assuimg the rewrite is defined in the config file, we don't want to simply overwrite it with
@@ -255,6 +267,9 @@ async fn serve_file(
     let path = match server.get_valid_file_path(&target) {
         Some(path) => path,
         None => {
+            // The rewrite may be pointing to a redirect even if it is not a valid file, so we need to check
+            // for that here
+            handle_redirect!(server, target);
             return Ok(not_found());
         }
     };
