@@ -1,7 +1,15 @@
 [package]
 name = "chimney"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
+description = "A simple, fast and easy to use static file server."
+authors = ["Ayodeji O. <ayodeji@trulyao.dev>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/aosasona/chimney"
+repository = "https://github.com/aosasona/chimney"
+keywords = ["static", "file", "server", "frontend", "web"]
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
