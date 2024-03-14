@@ -77,6 +77,7 @@ fn from_extension(extension: &str) -> String {
         "txt" | "c" | "h" | "bas" => "text/plain",
         "vcf" => "text/vcard",
         "vsd" => "application/vnd.visio",
+        "wasm" => "application/wasm",
         "wav" => "audio/wav",
         "weba" => "audio/webm",
         "webm" => "video/webm",
