@@ -1,10 +1,4 @@
-mod config;
-mod error;
-mod mimetype;
-mod server;
-
-mod commands;
-mod log_macros;
+use chimney::{commands, log_error};
 
 #[tokio::main]
 async fn main() {
