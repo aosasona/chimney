@@ -95,8 +95,10 @@ impl Server {
             self.config.host, self.config.port
         ));
 
+        let arc_self = Arc::new(self.clone());
+
         loop {
-            let self_clone = self.clone();
+            let self_clone = Arc::clone(&arc_self);
 
             tokio::select! {
                 _ = self.shutdown_signal.notified() => {
