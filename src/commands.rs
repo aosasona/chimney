@@ -22,6 +22,16 @@ pub enum Commands {
         target_dir: Option<PathBuf>,
     },
 
+    DumpConfig {
+        #[arg(
+            short,
+            long,
+            value_name = "CONFIG_PATH",
+            default_value = "chimney.toml"
+        )]
+        config_path: PathBuf,
+    },
+
     Version,
 }
 
@@ -58,6 +68,15 @@ impl CliOpts {
 
                 let file_path = config::init_at(&mut target.clone())?;
                 log_info!(format!("Created new config file at `{}`", file_path));
+            }
+
+            Commands::DumpConfig { config_path } => {
+                let mut config_path = config_path.clone();
+                if !config_path.exists() {
+                    config_path = PathBuf::from("/etc/chimney/chimney.toml");
+                }
+                let config = config::read_from_path(&mut config_path.clone())?;
+                dbg!(config);
             }
 
             Commands::Version => {
