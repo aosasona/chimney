@@ -200,7 +200,8 @@ pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError>
 
     let raw_config = fs::read_to_string(config_path.clone()).map_err(FailedToReadConfig)?;
 
-    let mut config: Config = toml::from_str(&raw_config).map_err(InvalidConfig)?;
+    let mut config: Config =
+        toml::from_str(&raw_config).map_err(|e| InvalidConfig(e.message().to_string()))?;
 
     if config.root_dir.is_empty() {
         return Err(RootDirNotSet);
