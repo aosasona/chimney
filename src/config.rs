@@ -115,6 +115,13 @@ impl Https {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    Single,
+    Multi,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     #[serde(default = "Config::default_host")]
     pub host: IpAddr,
@@ -124,6 +131,9 @@ pub struct Config {
 
     #[serde(default)]
     pub domain_names: Vec<String>,
+
+    #[serde(default = "Config::default_mode")]
+    pub mode: Option<Mode>,
 
     #[serde(default = "Config::default_logging_flag")]
     pub enable_logging: bool,
@@ -162,6 +172,10 @@ impl Config {
 
     fn default_root_dir() -> String {
         "public".to_string()
+    }
+
+    fn default_mode() -> Option<Mode> {
+        Some(Mode::Single)
     }
 }
 

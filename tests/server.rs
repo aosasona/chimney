@@ -40,6 +40,7 @@ fn mock_server() -> Server {
         host: std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
         port: 80,
         enable_logging: true,
+        mode: Some(Mode::Single),
         root_dir: "./examples/basic/public".to_string(),
         fallback_document: Some("fallback.html".to_string()),
         domain_names: vec![],
