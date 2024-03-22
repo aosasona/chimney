@@ -24,7 +24,7 @@ pub enum ChimneyError {
     FailedToReadConfig(StdError),
 
     #[error("Invalid config file, reason: {0:?}")]
-    InvalidConfig(toml::de::Error),
+    InvalidConfig(String),
 
     #[error("The target directory does not exist or is not a directory: {0}")]
     TargetDirNotExists(String),
