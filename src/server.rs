@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, Redirect, Rewrite},
+    config::{Config, Mode, Redirect, Rewrite},
     error::ChimneyError::{
         self, FailedToAcceptConnection, FailedToBind, FailedToParseAddress, UnableToOpenFile,
     },
@@ -16,13 +16,30 @@ use hyper::{
     Request, Response, Result as HyperResult, StatusCode,
 };
 use hyper_util::rt::TokioIo;
-use std::{net::SocketAddr, path::PathBuf, str::FromStr, sync::Arc};
+use std::{
+    collections::HashMap,
+    net::{IpAddr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+};
 use tokio::{fs::File, net::TcpListener, sync::Notify};
 use tokio_util::io::ReaderStream;
 
+// TODO: battle the lifetime and stop cloning
+
 #[derive(Debug, Clone)]
 pub struct Server {
-    pub config: Config,
+    host: IpAddr,
+    port: usize,
+    mode: Mode,
+    pub enable_logging: bool,
+    root_dir: PathBuf,
+    pub sites: HashMap<String, Config>,
+    // Key: domain without protocol (e.g thing.foo.bar), value: site
+    // This is so that we can easily jump from an host to a config in the `sites` "table" without
+    // any sort of traversal or looping
+    pub domain_mappings: HashMap<String, String>,
     shutdown_signal: Arc<Notify>,
 }
 
@@ -46,19 +63,78 @@ macro_rules! empty_to_index {
 }
 
 macro_rules! handle_redirect {
-    ($server:expr, $request_path:expr) => {
-        if let Some((to, replay)) = $server.find_redirect($request_path) {
+    ($server:expr, $config:expr, $request_path:expr) => {
+        if let Some((to, replay)) = $server.find_redirect($config, $request_path) {
             return Ok(redirect(to, replay));
         }
     };
 }
 
+pub struct Opts {
+    pub host: IpAddr,
+    pub port: usize,
+    pub mode: Mode,
+    pub enable_logging: bool,
+    pub root_dir: PathBuf,
+}
+
 impl Server {
-    pub fn new(config: Config) -> Self {
+    pub fn new(opts: &Opts) -> Self {
         Server {
-            config,
+            host: opts.host,
+            port: opts.port,
+            enable_logging: opts.enable_logging,
+            mode: opts.mode.clone(),
+            root_dir: opts.root_dir.clone(),
+            sites: HashMap::new(),
+            domain_mappings: HashMap::new(),
             shutdown_signal: Arc::new(Notify::new()),
         }
+    }
+
+    pub fn set_host(&mut self, host: IpAddr) -> &Self {
+        self.host = host;
+        return self;
+    }
+
+    pub fn set_port(&mut self, port: usize) -> &Self {
+        self.port = port;
+        return self;
+    }
+
+    pub fn set_enable_logging(&mut self, enable_logging: bool) -> &Self {
+        self.enable_logging = enable_logging;
+        return self;
+    }
+
+    pub fn set_root_dir(&mut self, root_dir: PathBuf) -> &Self {
+        self.root_dir = root_dir;
+        return self;
+    }
+
+    pub fn set_mode(&mut self, mode: Mode) -> &Self {
+        self.mode = mode;
+        return self;
+    }
+
+    /// Add a new site and its config to the server's source of truth
+    pub fn register(&mut self, site_name: String, config: &Config) -> &Self {
+        if self.sites.get(&site_name).is_some() {
+            return self;
+        }
+
+        self.sites.insert(site_name, config.clone());
+        return self;
+    }
+
+    pub fn find_config_by_host<'a>(&'a self, host: &'a str) -> Option<&'a Config> {
+        return match self.mode {
+            Mode::Single => self.sites.get("default"),
+            Mode::Multi => {
+                let site_name = self.domain_mappings.get(host)?;
+                self.sites.get(site_name)
+            }
+        };
     }
 
     pub async fn run(self) -> Result<(), ChimneyError> {
@@ -80,10 +156,8 @@ impl Server {
         });
     }
 
-    // TODO: handle HTTPS (run a second server for HTTPS, and force redirect from HTTP to
-    // HTTPS if enabled)
     async fn listen(self) -> Result<(), ChimneyError> {
-        let raw_addr = format!("{}:{}", self.config.host, self.config.port);
+        let raw_addr = format!("{}:{}", self.host, self.port);
         let addr: SocketAddr = raw_addr
             .parse()
             .map_err(|e| FailedToParseAddress(raw_addr, e))?;
@@ -92,7 +166,7 @@ impl Server {
 
         log_info!(format!(
             "Server is running at http://{}:{}",
-            self.config.host, self.config.port
+            self.host, self.port
         ));
 
         let arc_self = Arc::new(self.clone());
@@ -133,15 +207,15 @@ impl Server {
         }
     }
 
-    pub fn find_rewrite_or(&self, target: &str) -> String {
-        if self.config.rewrites.is_empty() {
+    pub fn find_rewrite_or(&self, config: &Config, target: &str) -> String {
+        if config.rewrites.is_empty() {
             return target.to_string();
         }
 
         let rewrite_key = with_leading_slash!(target);
         assert!(rewrite_key.starts_with('/'));
 
-        if let Some(rewrite) = self.config.rewrites.get(&rewrite_key) {
+        if let Some(rewrite) = config.rewrites.get(&rewrite_key) {
             return with_leading_slash!(match rewrite {
                 Rewrite::Config { to } => to,
                 Rewrite::Target(target) => target,
@@ -152,15 +226,15 @@ impl Server {
         with_leading_slash!(target)
     }
 
-    pub fn find_redirect(&self, path: &str) -> Option<(String, bool)> {
-        if self.config.redirects.is_empty() {
+    pub fn find_redirect(&self, config: &Config, path: &str) -> Option<(String, bool)> {
+        if config.redirects.is_empty() {
             return None;
         }
 
         let redirect_key = with_leading_slash!(path);
         assert!(redirect_key.starts_with('/'));
 
-        if let Some(redirect) = self.config.redirects.get(&redirect_key) {
+        if let Some(redirect) = config.redirects.get(&redirect_key) {
             return match redirect {
                 Redirect::Target(to) => Some((to.to_string(), false)),
                 Redirect::Config { to, replay } => Some((to.to_string(), *replay)),
@@ -170,12 +244,12 @@ impl Server {
         None
     }
 
-    pub fn get_valid_file_path(&self, target: &str) -> Option<PathBuf> {
-        let mut path = PathBuf::from(&self.config.root_dir).join(target.trim_start_matches('/'));
+    pub fn get_valid_file_path(&self, config: &Config, target: &str) -> Option<PathBuf> {
+        let mut path = PathBuf::from(&config.root_dir).join(target.trim_start_matches('/'));
 
         if !path.exists() {
-            if let Some(fallback) = self.config.fallback_document.clone() {
-                let fallback_path = PathBuf::from(&self.config.root_dir).join(fallback);
+            if let Some(fallback) = config.fallback_document.clone() {
+                let fallback_path = PathBuf::from(&config.root_dir).join(fallback);
                 if fallback_path.exists() && fallback_path.is_file() {
                     path = fallback_path;
                 };
@@ -199,6 +273,7 @@ impl Server {
 
     pub fn build_response(
         &self,
+        config: &Config,
         boxed_body: BoxBody<Bytes, std::io::Error>,
         mime_type: String,
     ) -> Response<BoxBody<Bytes, std::io::Error>> {
@@ -208,7 +283,7 @@ impl Server {
             .header("Server", "Chimney");
 
         if let Some(headers) = response.headers_mut() {
-            for (key, value) in self.config.headers.iter() {
+            for (key, value) in config.headers.iter() {
                 if let Ok(header_name) = HeaderName::from_str(key) {
                     headers.insert(header_name, HeaderValue::from_str(value).unwrap());
                 }
@@ -217,14 +292,14 @@ impl Server {
 
         match response.body(boxed_body) {
             Ok(response) => response,
-            Err(_) => not_found(),
+            Err(_) => empty_response(StatusCode::NOT_FOUND),
         }
     }
 }
 
-fn not_found() -> Response<BoxBody<Bytes, std::io::Error>> {
+fn empty_response(code: StatusCode) -> Response<BoxBody<Bytes, std::io::Error>> {
     Response::builder()
-        .status(StatusCode::NOT_FOUND)
+        .status(code)
         .body(Full::new("".into()).map_err(|e| match e {}).boxed())
         .unwrap()
 }
@@ -249,30 +324,46 @@ async fn serve_file(
 ) -> HyperResult<Response<BoxBody<Bytes, std::io::Error>>> {
     let request_path = req.uri().path();
 
-    if server.config.enable_logging {
+    if server.enable_logging {
         log_request!(&req);
     }
 
+    let target_host = match req.headers().get("host") {
+        Some(header_value) => match header_value.to_str() {
+            Ok(host) => host,
+            _ => return Ok(empty_response(StatusCode::INTERNAL_SERVER_ERROR)),
+        },
+        None => match req.uri().host() {
+            Some(host) => host,
+            _ => return Ok(empty_response(StatusCode::MISDIRECTED_REQUEST)),
+        },
+    };
+
+    let config = match server.find_config_by_host(target_host) {
+        Some(c) => c,
+        None => return Ok(empty_response(StatusCode::MISDIRECTED_REQUEST)),
+    };
+
     // Redirects take precedence over rewrites, we need to check for that first before any attempt
     // to normalize the path (with index.html for example) or rewrite it
-    handle_redirect!(server, request_path);
+    handle_redirect!(server, config, request_path);
 
     // We are not normalizing the path here because we want a rewrite for `/` to be possible
     // assuimg the rewrite is defined in the config file, we don't want to simply overwrite it with
     // `/index.html`
-    let target = server.find_rewrite_or(request_path);
+    let target = server.find_rewrite_or(config, request_path);
 
     // We need to automatically rewrite `/` to `/index.html` if the path is empty since they are
     // generally considered one and the same
     let target = empty_to_index!(target);
 
-    let path = match server.get_valid_file_path(&target) {
+    let path = match server.get_valid_file_path(config, &target) {
         Some(path) => path,
         None => {
             // The rewrite may be pointing to a redirect even if it is not a valid file, so we need to check
             // for that here
-            handle_redirect!(server, target);
-            return Ok(not_found());
+            handle_redirect!(server, config, target);
+            return Ok(empty_response(StatusCode::NOT_FOUND));
         }
     };
 
@@ -282,14 +373,14 @@ async fn serve_file(
         Ok(file) => file,
         Err(error) => {
             log_error!(format!("Failed to open file: {:?}", error));
-            return Ok(not_found());
+            return Ok(empty_response(StatusCode::NOT_FOUND));
         }
     };
 
     let reader_stream = ReaderStream::new(file);
     let boxed_body = StreamBody::new(reader_stream.map_ok(Frame::data)).boxed();
 
-    let response = server.build_response(boxed_body, mime_type);
+    let response = server.build_response(config, boxed_body, mime_type);
 
     Ok(response)
 }

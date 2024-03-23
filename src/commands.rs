@@ -1,4 +1,9 @@
-use crate::{config, error::ChimneyError, log_info, server::Server};
+use crate::{
+    config::{self, Mode},
+    error::ChimneyError,
+    log_info,
+    server::{Opts, Server},
+};
 use clap::{Parser, Subcommand};
 use std::{env, path::PathBuf};
 
@@ -57,7 +62,22 @@ impl CliOpts {
                     config_path = PathBuf::from("/etc/chimney/chimney.toml");
                 }
                 let config = config::read_from_path(&mut config_path.clone())?;
-                let server = Server::new(config);
+                let mut server = Server::new(&Opts {
+                    host: config.host,
+                    port: config.port,
+                    enable_logging: config.enable_logging,
+                    mode: config.mode.clone(),
+                    root_dir: config.root_dir.clone().into(),
+                });
+
+                match config.mode {
+                    Mode::Single => server.register("default".to_string(), &config),
+                    Mode::Multi => {
+                        // TODO: see note
+                        todo!("traverse all sub-directories and add their config to the server")
+                    }
+                };
+
                 server.run().await?;
             }
             Commands::Init { target_dir } => {

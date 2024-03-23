@@ -92,7 +92,7 @@ pub struct Https {
     auto_redirect: bool,
 
     #[serde(default = "Https::default_port")]
-    pub port: u16,
+    pub port: usize,
 
     #[serde(default)]
     pub use_self_signed: bool,
@@ -105,7 +105,7 @@ pub struct Https {
 }
 
 impl Https {
-    fn default_port() -> u16 {
+    fn default_port() -> usize {
         443
     }
 
@@ -127,13 +127,13 @@ pub struct Config {
     pub host: IpAddr,
 
     #[serde(default = "Config::default_port")]
-    pub port: u16,
+    pub port: usize,
 
     #[serde(default)]
     pub domain_names: Vec<String>,
 
     #[serde(default = "Config::default_mode")]
-    pub mode: Option<Mode>,
+    pub mode: Mode,
 
     #[serde(default = "Config::default_logging_flag")]
     pub enable_logging: bool,
@@ -158,24 +158,24 @@ pub struct Config {
 }
 
 impl Config {
-    fn default_host() -> IpAddr {
+    pub fn default_host() -> IpAddr {
         IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
     }
 
-    fn default_port() -> u16 {
+    pub fn default_port() -> usize {
         80
     }
 
-    fn default_logging_flag() -> bool {
+    pub fn default_logging_flag() -> bool {
         true
     }
 
-    fn default_root_dir() -> String {
+    pub fn default_root_dir() -> String {
         "public".to_string()
     }
 
-    fn default_mode() -> Option<Mode> {
-        Some(Mode::Single)
+    pub fn default_mode() -> Mode {
+        Mode::Single
     }
 }
 
@@ -192,6 +192,28 @@ pub fn init_at(path: &mut PathBuf) -> Result<String, ChimneyError> {
     fs::write(&path, CONFIG_TEMPLATE).map_err(FailedToWriteConfig)?;
 
     Ok(absolute_path_str!(path))
+}
+
+pub fn parse_config(config_path: &PathBuf, raw_config: String) -> Result<Config, ChimneyError> {
+    let mut config: Config =
+        toml::from_str(&raw_config).map_err(|e| InvalidConfig(e.message().to_string()))?;
+
+    if config.root_dir.is_empty() {
+        return Err(RootDirNotSet);
+    }
+
+    // Expand the root directory to an absolute path
+    let current_dir = std::env::current_dir().map_err(FailedToGetWorkingDir)?;
+
+    let parent_dir = if let Some(parent) = config_path.parent() {
+        parent
+    } else {
+        current_dir.as_path()
+    };
+
+    config.root_dir = absolute_path_str!(parent_dir.join(config.root_dir.clone()));
+
+    Ok(config)
 }
 
 pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError> {
@@ -214,23 +236,5 @@ pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError>
 
     let raw_config = fs::read_to_string(config_path.clone()).map_err(FailedToReadConfig)?;
 
-    let mut config: Config =
-        toml::from_str(&raw_config).map_err(|e| InvalidConfig(e.message().to_string()))?;
-
-    if config.root_dir.is_empty() {
-        return Err(RootDirNotSet);
-    }
-
-    // Expand the root directory to an absolute path
-    let current_dir = std::env::current_dir().map_err(FailedToGetWorkingDir)?;
-
-    let parent_dir = if let Some(p) = config_path.parent() {
-        p
-    } else {
-        current_dir.as_path()
-    };
-
-    config.root_dir = absolute_path_str!(parent_dir.join(config.root_dir.clone()));
-
-    Ok(config)
+    return parse_config(config_path, raw_config);
 }
