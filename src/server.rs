@@ -26,8 +26,6 @@ use std::{
 use tokio::{fs::File, net::TcpListener, sync::Notify};
 use tokio_util::io::ReaderStream;
 
-// TODO: battle the lifetime and stop cloning
-
 #[derive(Debug, Clone)]
 pub struct Server {
     host: IpAddr,
@@ -123,6 +121,7 @@ impl Server {
             return self;
         }
 
+        // TODO: battle the lifetime and stop cloning
         self.sites.insert(site_name, config.clone());
         return self;
     }
@@ -245,11 +244,11 @@ impl Server {
     }
 
     pub fn get_valid_file_path(&self, config: &Config, target: &str) -> Option<PathBuf> {
-        let mut path = PathBuf::from(&config.root_dir).join(target.trim_start_matches('/'));
+        let mut path = PathBuf::from(&config.root.get_path()).join(target.trim_start_matches('/'));
 
         if !path.exists() {
             if let Some(fallback) = config.fallback_document.clone() {
-                let fallback_path = PathBuf::from(&config.root_dir).join(fallback);
+                let fallback_path = PathBuf::from(&config.root.get_path()).join(fallback);
                 if fallback_path.exists() && fallback_path.is_file() {
                     path = fallback_path;
                 };

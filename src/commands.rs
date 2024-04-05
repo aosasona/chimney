@@ -67,7 +67,7 @@ impl CliOpts {
                     port: config.port,
                     enable_logging: config.enable_logging,
                     mode: config.mode.clone(),
-                    root_dir: config.root_dir.clone().into(),
+                    root_dir: config.root.get_path().into(),
                 });
 
                 match config.mode {

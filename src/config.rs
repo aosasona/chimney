@@ -2,6 +2,7 @@ use crate::log_warning;
 use path_absolutize::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 use std::{
     fs,
     net::{IpAddr, Ipv4Addr},
@@ -26,7 +27,14 @@ const CONFIG_TEMPLATE: &str = r#"host = "0.0.0.0"
 port = 80
 domain_names = [] # the domain names that the server will respond to
 enable_logging = true # if true, the server will log all requests to the console
-root_dir = "public" # the directory where the server will look for files to serve, relative to where this config file is located unless an absolute path is provided
+mode = "single"
+root = "public" # the directory where the server will look for files to serve, relative to where this config file is located unless an absolute path is provided
+# or you can do this:
+# root = {
+#    path = "public",
+#    ignore_matches = [] # this only applies if you are running in `multi` mode
+# }
+
 fallback_document = "index.html" # whenever a request doesn't match a file, the server will serve this file
 
 
@@ -122,6 +130,66 @@ pub enum Mode {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Root {
+    Path(String),
+
+    Config {
+        path: String,
+        ignore_matches: Vec<String>,
+    },
+}
+
+impl Root {
+    pub fn is_empty(&self) -> bool {
+        return self.get_path().is_empty();
+    }
+
+    pub fn set_path(&mut self, path_str: &str) -> &Self {
+        match self {
+            Root::Path(path) => *path = path_str.into(),
+            Root::Config { path, .. } => *path = path_str.into(),
+        }
+
+        return self;
+    }
+
+    pub fn get_path(&self) -> &str {
+        return match self {
+            Root::Path(path) => path.as_ref(),
+            Root::Config { path, .. } => path.as_ref(),
+        };
+    }
+}
+
+impl Into<Root> for String {
+    fn into(self) -> Root {
+        Root::Path(self)
+    }
+}
+
+impl AsRef<Path> for Root {
+    fn as_ref(&self) -> &Path {
+        Path::new(self.get_path())
+    }
+}
+
+impl std::fmt::Display for Root {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Root::Path(path) => f.write_str(path.as_str()),
+            Root::Config { path, .. } => f.write_str(path.as_str()),
+        }
+    }
+}
+
+impl From<Root> for PathBuf {
+    fn from(val: Root) -> Self {
+        PathBuf::from(val.get_path())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     #[serde(default = "Config::default_host")]
     pub host: IpAddr,
@@ -139,7 +207,7 @@ pub struct Config {
     pub enable_logging: bool,
 
     #[serde(default = "Config::default_root_dir")]
-    pub root_dir: String,
+    pub root: Root,
 
     #[serde(default)]
     pub fallback_document: Option<String>,
@@ -170,8 +238,8 @@ impl Config {
         true
     }
 
-    pub fn default_root_dir() -> String {
-        "public".to_string()
+    pub fn default_root_dir() -> Root {
+        Root::Path("public".to_string())
     }
 
     pub fn default_mode() -> Mode {
@@ -198,7 +266,7 @@ pub fn parse_config(config_path: &PathBuf, raw_config: String) -> Result<Config,
     let mut config: Config =
         toml::from_str(&raw_config).map_err(|e| InvalidConfig(e.message().to_string()))?;
 
-    if config.root_dir.is_empty() {
+    if config.root.is_empty() {
         return Err(RootDirNotSet);
     }
 
@@ -211,7 +279,8 @@ pub fn parse_config(config_path: &PathBuf, raw_config: String) -> Result<Config,
         current_dir.as_path()
     };
 
-    config.root_dir = absolute_path_str!(parent_dir.join(config.root_dir.clone()));
+    let root = absolute_path_str!(parent_dir.join(&config.root));
+    config.root.set_path(root.as_str());
 
     Ok(config)
 }

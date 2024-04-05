@@ -24,7 +24,6 @@ macro_rules! log_request {
 #[macro_export]
 macro_rules! log_error {
     ($error:expr) => {
-        dbg!(&$error);
         eprintln!("\x1b[91m[Error] {}\x1b[0m", $error);
     };
 }

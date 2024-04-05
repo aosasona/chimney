@@ -41,7 +41,7 @@ fn mock_server() -> (Server, Config) {
         port: 80,
         enable_logging: true,
         mode: Mode::Single,
-        root_dir: "./examples/basic/public".to_string(),
+        root: Root::Path("./examples/basic/public".to_string()),
         fallback_document: Some("fallback.html".to_string()),
         domain_names: vec![],
         https: None,
@@ -55,7 +55,7 @@ fn mock_server() -> (Server, Config) {
         port: config.port,
         enable_logging: config.enable_logging,
         mode: config.mode.clone(),
-        root_dir: config.root_dir.clone().into(),
+        root_dir: config.root.clone().into(),
     });
     server.register("default".to_string(), &config);
 
@@ -106,7 +106,7 @@ pub fn get_file_path_test() {
     // This is a valid file so it should return the path to the file
     assert_eq!(
         server.get_valid_file_path(&config, "/index.html"),
-        Some(PathBuf::from(format!("{}/index.html", config.root_dir)))
+        Some(PathBuf::from(format!("{}/index.html", config.root)))
     );
 
     // the fallback path doesn't exist, the file doesn't exist, and the directory doesn't
@@ -121,30 +121,27 @@ pub fn get_file_path_test() {
         server.get_valid_file_path(&config, "/not-found"),
         Some(PathBuf::from(format!(
             "{}/{}",
-            config.root_dir,
+            config.root,
             config.fallback_document.clone().unwrap()
         )))
     );
 
     // The has no root html file but since it is a directory and it has an index.html file,
     // it should return the path to the index.html file
-    config.root_dir = "./examples/basic".to_string();
+    config.root = "./examples/basic".to_string().into();
     assert_eq!(
         server.get_valid_file_path(&config, "/public"),
-        Some(PathBuf::from(format!(
-            "{}/public/index.html",
-            config.root_dir
-        )))
+        Some(PathBuf::from(format!("{}/public/index.html", config.root)))
     );
 
-    config.root_dir = "./examples/trulyao/blog/arguments".to_string();
+    config.root = "./examples/trulyao/blog/arguments".to_string().into();
     assert_eq!(
         server.get_valid_file_path(&config, "/"),
-        Some(PathBuf::from(format!("{}/index.html", config.root_dir)))
+        Some(PathBuf::from(format!("{}/index.html", config.root)))
     );
 
     // This directory has no index.html file so it should return None
-    config.root_dir = "./examples/trulyao/images".to_string();
+    config.root = "./examples/trulyao/images".to_string().into();
     assert_eq!(server.get_valid_file_path(&config, "/"), None);
 }
 
