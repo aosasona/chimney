@@ -2,7 +2,7 @@ host = "0.0.0.0"
 port = 80
 domain_names = ["thing.test"] # the domain names that the server will respond to
 enable_logging = true # if true, the server will log all requests to the console
-root_dir = "public" # the directory where the server will look for files to serve, relative to where this config file is located
+root = "public" # the directory where the server will look for files to serve, relative to where this config file is located
 fallback_document = "index.html" # whenever a request doesn't match a file, the server will serve this file
 
 [https]

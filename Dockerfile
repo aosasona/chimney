@@ -31,7 +31,7 @@ RUN mkdir -p /etc/chimney
 RUN echo $'host = "0.0.0.0" \n\
 port = 80 \n\
 enable_logging = true \n\
-root_dir = "/var/www/html" \n\
+root = "/var/www/html" \n\
 fallback_document = "index.html"' > /etc/chimney/chimney.toml
 
 # Create default index page
@@ -52,4 +52,3 @@ LABEL org.opencontainers.image.description="A simple, fast, and easy to use stat
 LABEL org.opencontainers.image.authors="Ayodeji O. <ayodeji@trulyao.dev>"
 
 LABEL org.opencontainers.image.source="https://github.com/aosasona/chimney"
-

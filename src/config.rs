@@ -136,11 +136,17 @@ pub enum Root {
 
     Config {
         path: String,
+
+        #[serde(default = "Root::default_ignore_matches")]
         ignore_matches: Vec<String>,
     },
 }
 
 impl Root {
+    fn default_ignore_matches() -> Vec<String> {
+        vec![]
+    }
+
     pub fn is_empty(&self) -> bool {
         return self.get_path().is_empty();
     }
@@ -206,7 +212,7 @@ pub struct Config {
     #[serde(default = "Config::default_logging_flag")]
     pub enable_logging: bool,
 
-    #[serde(default = "Config::default_root_dir")]
+    #[serde(default = "Config::default_root")]
     pub root: Root,
 
     #[serde(default)]
@@ -238,7 +244,7 @@ impl Config {
         true
     }
 
-    pub fn default_root_dir() -> Root {
+    pub fn default_root() -> Root {
         Root::Path("public".to_string())
     }
 

@@ -2,12 +2,12 @@ host = "0.0.0.0"
 port = 80
 domain_names = ["basic.test", "trulyao.test"] # the domain names that the server will respond to
 enable_logging = true # if true, the server will log all requests to the console
-root_dir = "sites" # the directory where the server will look for files to serve, relative to where this config file is located unless an absolute path is provided
-ignore_matches = ["foo", "bar"]
+
 root = {
   path = "path/to/foo",
   ignore = ["bar", "baz", "./*"]
 }
+
 fallback_document = "" # whenever a request doesn't match a file, the server will serve this file
 
 

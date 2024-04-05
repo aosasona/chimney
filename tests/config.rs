@@ -10,7 +10,7 @@ macro_rules! config_str {
     port = 80
     domain_names = []
     enable_logging = true
-    root_dir = "public"
+    root = "public"
     fallback_document = "index.html"
     mode = "{}"
     "#,
