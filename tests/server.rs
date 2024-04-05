@@ -50,13 +50,16 @@ fn mock_server() -> (Server, Config) {
         redirects,
     };
 
-    let mut server = Server::new(&Opts {
-        host: config.host,
-        port: config.port,
-        enable_logging: config.enable_logging,
-        mode: config.mode.clone(),
-        root_dir: config.root.clone().into(),
-    });
+    let mut server = Server::new(
+        &Opts {
+            host: config.host,
+            port: config.port,
+            enable_logging: config.enable_logging,
+            mode: config.mode.clone(),
+            root_dir: config.root.clone().into(),
+        },
+        vec![],
+    );
     server.register("default".to_string(), &config);
 
     return (server, config);
