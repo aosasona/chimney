@@ -61,14 +61,19 @@ impl CliOpts {
                 if !config_path.exists() {
                     config_path = PathBuf::from("/etc/chimney/chimney.toml");
                 }
+
                 let config = config::read_from_path(&mut config_path.clone())?;
-                let mut server = Server::new(&Opts {
-                    host: config.host,
-                    port: config.port,
-                    enable_logging: config.enable_logging,
-                    mode: config.mode.clone(),
-                    root_dir: config.root.get_path().into(),
-                });
+
+                let mut server = Server::new(
+                    &Opts {
+                        host: config.host,
+                        port: config.port,
+                        enable_logging: config.enable_logging,
+                        mode: config.mode.clone(),
+                        root_dir: config.root.get_path().into(),
+                    },
+                    config.root.get_ignore_matches().unwrap_or(vec![]),
+                );
 
                 match config.mode {
                     Mode::Single => server.register("default".to_string(), &config),

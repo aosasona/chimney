@@ -166,6 +166,13 @@ impl Root {
             Root::Config { path, .. } => path.as_ref(),
         };
     }
+
+    pub fn get_ignore_matches(&self) -> Option<Vec<String>> {
+        match self {
+            Root::Path(_) => None,
+            Root::Config { ignore_matches, .. } => Some(ignore_matches.clone()),
+        }
+    }
 }
 
 impl Into<Root> for String {

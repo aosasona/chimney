@@ -33,7 +33,10 @@ pub struct Server {
     mode: Mode,
     pub enable_logging: bool,
     root_dir: PathBuf,
+
+    #[allow(dead_code)]
     ignore_matches: Vec<String>,
+
     pub sites: HashMap<String, Config>,
     // Key: domain without protocol (e.g thing.foo.bar), value: site
     // This is so that we can easily jump from an host to a config in the `sites` "table" without
@@ -75,18 +78,17 @@ pub struct Opts {
     pub mode: Mode,
     pub enable_logging: bool,
     pub root_dir: PathBuf,
-    pub ignore_matches: Vec<String>,
 }
 
 impl Server {
-    pub fn new(opts: &Opts) -> Self {
+    pub fn new(opts: &Opts, ignore_matches: Vec<String>) -> Self {
         Server {
             host: opts.host,
             port: opts.port,
             enable_logging: opts.enable_logging,
             mode: opts.mode.clone(),
             root_dir: opts.root_dir.clone(),
-            ignore_matches: opts.ignore_matches,
+            ignore_matches,
             sites: HashMap::new(),
             domain_mappings: HashMap::new(),
             shutdown_signal: Arc::new(Notify::new()),
