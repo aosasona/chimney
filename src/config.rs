@@ -157,7 +157,7 @@ impl Root {
             Root::Config { path, .. } => *path = path_str.into(),
         }
 
-        return self;
+        self
     }
 
     pub fn get_path(&self) -> &str {
@@ -175,9 +175,9 @@ impl Root {
     }
 }
 
-impl Into<Root> for String {
-    fn into(self) -> Root {
-        Root::Path(self)
+impl From<String> for Root {
+    fn from(val: String) -> Self {
+        Root::Path(val)
     }
 }
 
@@ -275,7 +275,7 @@ pub fn init_at(path: &mut PathBuf) -> Result<String, ChimneyError> {
     Ok(absolute_path_str!(path))
 }
 
-pub fn parse_config(config_path: &PathBuf, raw_config: String) -> Result<Config, ChimneyError> {
+pub fn parse_config(config_path: &Path, raw_config: String) -> Result<Config, ChimneyError> {
     let mut config: Config =
         toml::from_str(&raw_config).map_err(|e| InvalidConfig(e.message().to_string()))?;
 
@@ -318,5 +318,5 @@ pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError>
 
     let raw_config = fs::read_to_string(config_path.clone()).map_err(FailedToReadConfig)?;
 
-    return parse_config(config_path, raw_config);
+    parse_config(config_path, raw_config)
 }

@@ -112,12 +112,12 @@ impl Server {
 
     pub fn set_root_dir(&mut self, root_dir: PathBuf) -> &Self {
         self.root_dir = root_dir;
-        self
+       self
     }
 
     pub fn set_mode(&mut self, mode: Mode) -> &Self {
         self.mode = mode;
-        self
+        return self;
     }
 
     /// Add a new site and its config to the server's source of truth
@@ -128,7 +128,7 @@ impl Server {
 
         // TODO: battle the lifetime and stop cloning
         self.sites.insert(site_name, config.clone());
-        self
+        return self;
     }
 
     pub fn find_config_by_host<'a>(&'a self, host: &'a str) -> Option<&'a Config> {
@@ -361,7 +361,7 @@ async fn serve_file(
     // generally considered one and the same
     let target = empty_to_index!(target);
 
-    let path = match server.get_valid_file_path(config, target) {
+    let path = match server.get_valid_file_path(config, &target) {
         Some(path) => path,
         None => {
             // The rewrite may be pointing to a redirect even if it is not a valid file, so we need to check

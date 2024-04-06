@@ -62,7 +62,7 @@ fn mock_server() -> (Server, Config) {
     );
     server.register("default".to_string(), &config);
 
-    return (server, config);
+    (server, config)
 }
 
 #[test]

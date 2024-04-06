@@ -1,8 +1,8 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 const DEFAULT_MIME_TYPE: &str = "application/octet-stream";
 
-pub fn from_pathbuf(path: &PathBuf) -> String {
+pub fn from_pathbuf(path: &Path) -> String {
     let extension = path.extension().and_then(|ext| ext.to_str());
 
     if let Some(ext) = extension {
@@ -93,7 +93,8 @@ fn from_extension(extension: &str) -> String {
         "3gp" => "video/3gpp",
         "3g2" => "video/3gpp2",
         "7z" => "application/x-7z-compressed",
-        "bin" | _ => DEFAULT_MIME_TYPE,
+        "bin"  => DEFAULT_MIME_TYPE,
+        _ => DEFAULT_MIME_TYPE,
     }
     .to_string()
 }

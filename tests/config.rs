@@ -23,13 +23,13 @@ macro_rules! config_str {
 
 #[test]
 fn test_invalid_mode() {
-    assert!(parse_config(&PathBuf::new(), config_str!("multi")).is_ok() == true);
-    assert!(parse_config(&PathBuf::new(), config_str!("MULTI")).is_ok() == false);
+    assert!(parse_config(&PathBuf::new(), config_str!("multi")).is_ok());
+    assert!(parse_config(&PathBuf::new(), config_str!("MULTI")).is_err());
 
-    assert!(parse_config(&PathBuf::new(), config_str!("single")).is_ok() == true);
-    assert!(parse_config(&PathBuf::new(), config_str!("SINGLE")).is_ok() == false);
+    assert!(parse_config(&PathBuf::new(), config_str!("single")).is_ok());
+    assert!(parse_config(&PathBuf::new(), config_str!("SINGLE")).is_err());
 
-    assert!(parse_config(&PathBuf::new(), config_str!("invalid")).is_ok() == false);
+    assert!(parse_config(&PathBuf::new(), config_str!("invalid")).is_err());
 }
 
 #[test]
