@@ -74,6 +74,17 @@ macro_rules! handle_redirect {
     };
 }
 
+macro_rules! use_fallback_path {
+    ($config:expr, $path: expr) => {
+        if let Some(fallback) = $config.fallback_document.to_owned() {
+            let fallback_path = PathBuf::from(&$config.root.get_path()).join(fallback);
+            if fallback_path.exists() && fallback_path.is_file() {
+                $path = fallback_path;
+            };
+        }
+    };
+}
+
 pub struct Opts {
     pub host: IpAddr,
     pub port: usize,
@@ -255,30 +266,29 @@ impl Server {
         let mut path = PathBuf::from(&config.root.get_path()).join(target.trim_start_matches('/'));
 
         if !path.exists() {
-            if let Some(fallback) = config.fallback_document.clone() {
-                let fallback_path = PathBuf::from(&config.root.get_path()).join(fallback);
-                if fallback_path.exists() && fallback_path.is_file() {
-                    path = fallback_path;
-                };
-            }
+            use_fallback_path!(config, path);
         };
 
         if path.is_dir() {
             let directory_root_file = path.join("index.html");
 
+            // If the directory has an index.html file, we want to serve that instead
+            // but if it doesn't, we want to serve the the fallback path instead
             if directory_root_file.exists() && directory_root_file.is_file() {
                 path = directory_root_file;
+            } else {
+                use_fallback_path!(config, path);
             };
         }
 
         if path.exists() && path.is_file() {
-            Some(path)
-        } else {
-            None
+            return Some(path);
         }
+
+        None
     }
 
-    pub fn build_response(
+    pub async fn build_response(
         &self,
         config: &Config,
         boxed_body: BoxBody<Bytes, std::io::Error>,
