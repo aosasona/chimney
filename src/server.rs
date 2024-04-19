@@ -23,8 +23,10 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-use tokio::{fs::File, net::TcpListener, sync::Notify};
+use tokio::{fs::File, io::AsyncReadExt, net::TcpListener, sync::Notify};
 use tokio_util::io::ReaderStream;
+
+const DEFAULT_SITE_NAME: &str = "default";
 
 #[derive(Debug, Clone)]
 pub struct Server {
@@ -133,7 +135,7 @@ impl Server {
 
     pub fn find_config_by_host<'a>(&'a self, host: &'a str) -> Option<&'a Config> {
         return match self.mode {
-            Mode::Single => self.sites.get("default"),
+            Mode::Single => self.sites.get(DEFAULT_SITE_NAME),
             Mode::Multi => {
                 let site_name = self.domain_mappings.get(host)?;
                 self.sites.get(site_name)
@@ -169,7 +171,7 @@ impl Server {
         let server = TcpListener::bind(addr).await.map_err(FailedToBind)?;
 
         log_info!(format!(
-            "Server is running at http://{}:{}",
+            "Server is listening on http://{}:{}",
             self.host, self.port
         ));
 
@@ -180,7 +182,7 @@ impl Server {
 
             tokio::select! {
                 _ = self.shutdown_signal.notified() => {
-                    log_info!("Shutting down server");
+                    log_info!("Received shutdown signal, shutting down now...");
                     return Ok(());
                 },
 
@@ -201,6 +203,7 @@ impl Server {
                                     log_error!(error);
                                 }
                             }
+
                             Err(error) => {
                                 log_error!(error);
                             }
