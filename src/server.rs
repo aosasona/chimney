@@ -297,28 +297,62 @@ impl Server {
         let mut response = Response::builder()
             .status(StatusCode::OK)
             .header("Content-Type", mime_type)
-            .header("Server", "Chimney");
+            .header("Server", "chimney");
 
         if let Some(headers) = response.headers_mut() {
             for (key, value) in config.headers.iter() {
                 if let Ok(header_name) = HeaderName::from_str(key) {
-                    headers.insert(header_name, HeaderValue::from_str(value).unwrap());
+                    headers.insert(
+                        header_name,
+                        HeaderValue::from_str(value).unwrap_or(HeaderValue::from_static("")),
+                    );
                 }
             }
         }
 
         match response.body(boxed_body) {
             Ok(response) => response,
-            Err(_) => empty_response(StatusCode::NOT_FOUND),
+            Err(e) => {
+                log_error!(format!("Failed to build response: {:?}", e));
+                make_response(Some(config), "", StatusCode::NOT_FOUND).await
+            }
         }
     }
 }
 
-fn empty_response(code: StatusCode) -> Response<BoxBody<Bytes, std::io::Error>> {
+async fn make_response(
+    config: Option<&Config>, // some usages of this function may not need the config
+    body: &str,
+    code: StatusCode,
+) -> Response<BoxBody<Bytes, std::io::Error>> {
+    // Override the html's content with the fallback document if it exists
+    let html = match (config, code) {
+        (Some(c), StatusCode::NOT_FOUND) => {
+            let mut path = PathBuf::new();
+            let mut html_buf = String::new();
+
+            use_fallback_path!(c, path);
+
+            if let Ok(mut file) = File::open(path).await {
+                html_buf = match file.read_to_string(&mut html_buf).await {
+                    Ok(_) => html_buf,
+                    Err(e) => {
+                        log_error!(format!("Failed to read fallback file: {:?}", e));
+                        body.to_string()
+                    }
+                };
+            }
+
+            html_buf
+        }
+        _ => body.to_string(),
+    };
+
+    let boxed_body = Full::new(html.into()).map_err(|e| match e {}).boxed();
     Response::builder()
         .status(code)
-        .body(Full::new("".into()).map_err(|e| match e {}).boxed())
-        .unwrap()
+        .body(boxed_body)
+        .expect("Failed to build response")
 }
 
 fn redirect(to: String, replay: bool) -> Response<BoxBody<Bytes, std::io::Error>> {
@@ -348,17 +382,17 @@ async fn serve_file(
     let target_host = match req.headers().get("host") {
         Some(header_value) => match header_value.to_str() {
             Ok(host) => host,
-            _ => return Ok(empty_response(StatusCode::INTERNAL_SERVER_ERROR)),
+            _ => return Ok(make_response(None, "", StatusCode::INTERNAL_SERVER_ERROR).await),
         },
         None => match req.uri().host() {
             Some(host) => host,
-            _ => return Ok(empty_response(StatusCode::MISDIRECTED_REQUEST)),
+            _ => return Ok(make_response(None, "", StatusCode::MISDIRECTED_REQUEST).await),
         },
     };
 
     let config = match server.find_config_by_host(target_host) {
         Some(c) => c,
-        None => return Ok(empty_response(StatusCode::MISDIRECTED_REQUEST)),
+        None => return Ok(make_response(None, "", StatusCode::MISDIRECTED_REQUEST).await),
     };
 
     // Redirects take precedence over rewrites, we need to check for that first before any attempt
@@ -380,7 +414,7 @@ async fn serve_file(
             // The rewrite may be pointing to a redirect even if it is not a valid file, so we need to check
             // for that here
             handle_redirect!(server, config, target);
-            return Ok(empty_response(StatusCode::NOT_FOUND));
+            return Ok(make_response(Some(config), "", StatusCode::NOT_FOUND).await);
         }
     };
 
@@ -390,14 +424,14 @@ async fn serve_file(
         Ok(file) => file,
         Err(error) => {
             log_error!(format!("Failed to open file: {:?}", error));
-            return Ok(empty_response(StatusCode::NOT_FOUND));
+            return Ok(make_response(Some(config), "", StatusCode::NOT_FOUND).await);
         }
     };
 
     let reader_stream = ReaderStream::new(file);
     let boxed_body = StreamBody::new(reader_stream.map_ok(Frame::data)).boxed();
 
-    let response = server.build_response(config, boxed_body, mime_type);
+    let response = server.build_response(config, boxed_body, mime_type).await;
 
     Ok(response)
 }
