@@ -128,11 +128,15 @@ You can find sample config files [here](https://github.com/aosasona/chimney/blob
 
 ## Why not \[this other proxy/server\]?
 
-Again, the first point is the major one (and the last) for my usecase. The `caddy` image is over 1GB (really should not be), the `nginx` image is still fairly small too at around 25MB, but the reason I did not pick either for my usecase and instead opted into making this is because I:
+I made this for my very narrow use-case as both a learning exercise and because I:
 
+- wanted something with a small surface area and extensible to suit my own needs for frontend deployment-related reasons later in the future (like [#23](https://github.com/aosasona/chimney/issues/23))
+- was interested in making something relatively small (both as a standalone binary and as a Docker image) - you can see most of the points are sort of related
 - already had a well-defined scope, I only needed a static file server, these other proxies just also happen to be function as file servers, and they work fine but I did not want the 90% of features just to use the 10%
-- wanted a bit more control, not just being able to extend as I go (also very possible with Caddy and Nginx) but things like using TOML and in turn making defining things like `redirects` and `rewrites` pretty easy and familiar (I agree too, not much of a good reason)
-- wanted to use and learn Rust properly, obviously, this was a great fit for it!
+- wanted a bit more control, not just being able to extend as I go (also very possible with Caddy and Nginx) but things like choosing TOML over YAML (or a DSL) and in turn making defining things like `redirects` and `rewrites` pretty easy and familiar (I agree too, not much of a good reason)
+- wanted to use and learn Rust "properly" (I still haven't read the book or taken a course :/), obviously, this was a great fit for it!
+
+This is most definitely not what you want, and if it is, give it a go and let me know how you're using it, bugs you find and general feedback would be appreciated.
 
 # Contributing & feedback
 
