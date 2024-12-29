@@ -137,13 +137,14 @@ impl Server {
     pub fn register(&mut self, site_name: String, config: &Config) -> &Self {
         if self.sites.contains_key(&site_name) {
             return self;
-        }
+        };
 
         // TODO: battle the lifetime and stop cloning
         self.sites.insert(site_name, config.clone());
         self
     }
 
+    // TODO: document
     pub fn find_config_by_host<'a>(&'a self, host: &'a str) -> Option<&'a Config> {
         match self.mode {
             Mode::Single => self.sites.get(DEFAULT_SITE_NAME),
@@ -161,6 +162,7 @@ impl Server {
         Ok(())
     }
 
+    // TODO: document
     async fn watch_for_shutdown_signal(&self) {
         let signal = self.shutdown_signal.clone();
 
@@ -173,6 +175,7 @@ impl Server {
         });
     }
 
+    // TODO: document
     async fn listen(self) -> Result<(), ChimneyError> {
         let raw_addr = format!("{}:{}", self.host, self.port);
         let addr: SocketAddr = raw_addr
@@ -225,6 +228,7 @@ impl Server {
         }
     }
 
+    // TODO: document
     pub fn find_rewrite_or(&self, config: &Config, target: &str) -> String {
         if config.rewrites.is_empty() {
             return target.to_string();
@@ -244,6 +248,7 @@ impl Server {
         with_leading_slash!(target)
     }
 
+    // TODO: document
     pub fn find_redirect(&self, config: &Config, path: &str) -> Option<(String, bool)> {
         if config.redirects.is_empty() {
             return None;
@@ -262,6 +267,7 @@ impl Server {
         None
     }
 
+    // TODO: document
     pub fn get_valid_file_path(&self, config: &Config, target: &str) -> Option<PathBuf> {
         let mut path = PathBuf::from(&config.root.get_path()).join(target.trim_start_matches('/'));
 
@@ -288,6 +294,7 @@ impl Server {
         None
     }
 
+    // TODO: document
     pub async fn build_response(
         &self,
         config: &Config,
@@ -320,6 +327,7 @@ impl Server {
     }
 }
 
+// TODO: document
 async fn make_response(
     config: Option<&Config>, // some usages of this function may not need the config
     body: &str,
@@ -355,6 +363,7 @@ async fn make_response(
         .expect("Failed to build response")
 }
 
+// TODO: document
 fn redirect(to: String, replay: bool) -> Response<BoxBody<Bytes, std::io::Error>> {
     let status = if replay {
         StatusCode::PERMANENT_REDIRECT // 308
@@ -369,6 +378,7 @@ fn redirect(to: String, replay: bool) -> Response<BoxBody<Bytes, std::io::Error>
         .unwrap()
 }
 
+// TODO: document
 async fn serve_file(
     server: &Server,
     req: Request<hyper::body::Incoming>,

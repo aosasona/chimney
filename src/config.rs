@@ -260,6 +260,7 @@ impl Config {
     }
 }
 
+// TODO: document
 pub fn init_at(path: &mut PathBuf) -> Result<String, ChimneyError> {
     if !path.is_dir() {
         return Err(TargetDirNotExists(absolute_path_str!(path)));
@@ -275,6 +276,7 @@ pub fn init_at(path: &mut PathBuf) -> Result<String, ChimneyError> {
     Ok(absolute_path_str!(path))
 }
 
+// TODO: document
 pub fn parse_config(config_path: &Path, raw_config: String) -> Result<Config, ChimneyError> {
     let mut config: Config =
         toml::from_str(&raw_config).map_err(|e| InvalidConfig(e.message().to_string()))?;
@@ -298,6 +300,7 @@ pub fn parse_config(config_path: &Path, raw_config: String) -> Result<Config, Ch
     Ok(config)
 }
 
+// TODO: document
 pub fn read_from_path(config_path: &mut PathBuf) -> Result<Config, ChimneyError> {
     // Try to find `chimney.toml` as a file or IN the target directory
     let has_toml_extension = config_path.extension().map_or(false, |ext| ext == "toml");
