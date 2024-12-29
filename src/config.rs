@@ -148,7 +148,7 @@ impl Root {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.get_path().is_empty();
+        self.get_path().is_empty()
     }
 
     pub fn set_path(&mut self, path_str: &str) -> &Self {
@@ -161,10 +161,10 @@ impl Root {
     }
 
     pub fn get_path(&self) -> &str {
-        return match self {
+        match self {
             Root::Path(path) => path.as_ref(),
             Root::Config { path, .. } => path.as_ref(),
-        };
+        }
     }
 
     pub fn get_ignore_matches(&self) -> Option<Vec<String>> {

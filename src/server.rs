@@ -135,7 +135,7 @@ impl Server {
 
     /// Add a new site and its config to the server's source of truth
     pub fn register(&mut self, site_name: String, config: &Config) -> &Self {
-        if self.sites.get(&site_name).is_some() {
+        if self.sites.contains_key(&site_name) {
             return self;
         }
 
@@ -145,13 +145,13 @@ impl Server {
     }
 
     pub fn find_config_by_host<'a>(&'a self, host: &'a str) -> Option<&'a Config> {
-        return match self.mode {
+        match self.mode {
             Mode::Single => self.sites.get(DEFAULT_SITE_NAME),
             Mode::Multi => {
                 let site_name = self.domain_mappings.get(host)?;
                 self.sites.get(site_name)
             }
-        };
+        }
     }
 
     pub async fn run(self) -> Result<(), ChimneyError> {
