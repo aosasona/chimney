@@ -13,8 +13,9 @@ repository = "https://github.com/aosasona/chimney"
 readme = "README.md"
 
 [workspace.dependencies]
+tokio = { version = "1.45.1" }
+kdl = { version = "6.3.4" }
 bytes = "1.10.1"
 chrono = "0.4.41"
 hyper = { version = "1.6.0", features = ["http1", "server"] }
 hyper-util = { version = "0.1.12", features = ["tokio"] }
-kdl = { version = "6.3.4" }
