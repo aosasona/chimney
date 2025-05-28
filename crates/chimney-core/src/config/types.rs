@@ -2,15 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     net::{IpAddr, Ipv4Addr},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use crate::error::ChimneyError;
 
 /// Represents the available log levels
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-#[derive(Default)]
 pub enum LogLevel {
     #[default]
     Info,
@@ -34,10 +33,10 @@ impl From<&str> for LogLevel {
 impl Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LogLevel::Debug => write!(f, "DEBUG"),
-            LogLevel::Info => write!(f, "INFO"),
-            LogLevel::Warn => write!(f, "WARN"),
-            LogLevel::Error => write!(f, "ERROR"),
+            LogLevel::Debug => write!(f, "debug"),
+            LogLevel::Info => write!(f, "info"),
+            LogLevel::Warn => write!(f, "warn"),
+            LogLevel::Error => write!(f, "error"),
         }
     }
 }
@@ -62,7 +61,20 @@ pub struct Config {
     pub log_level: LogLevel,
 
     /// The various site configurations
-    sites: Vec<(String, Site)>,
+    #[serde(skip_deserializing)]
+    pub sites: Vec<(String, Site)>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            host: Config::default_host(),
+            port: Config::default_port(),
+            sites_directory: Config::default_sites_dir(),
+            log_level: LogLevel::Info,
+            sites: Vec::new(),
+        }
+    }
 }
 
 impl Config {
@@ -77,35 +89,9 @@ impl Config {
     pub fn default_sites_dir() -> Vec<String> {
         // NOTE: there are cases where this can fail but the changes of hitting either are rare, so
         // we should be fine here
-        let cwd = std::env::current_dir().unwrap();
-        let sites_path = cwd.join(Path::new("/sites"));
+        let cwd = std::env::current_dir().unwrap_or(Path::new(".").to_path_buf());
+        let sites_path = cwd.join("sites");
         vec![sites_path.to_string_lossy().to_string()]
-    }
-}
-
-impl Config {
-    /// Add a site to the sites config
-    pub fn add_site(mut self, site: Site) {
-        self.sites.push((site.name.clone(), site));
-    }
-
-    /// Remove a site from the sites list
-    pub fn remove_site(mut self, name: &str) -> Result<(), ChimneyError> {
-        // Check if it already exists
-        if let Some(pos) = self.sites.iter().position(|(n, _)| n == name) {
-            self.sites.remove(pos);
-            Ok(())
-        } else {
-            Err(ChimneyError::ConfigError {
-                field: "sites".to_string(),
-                message: format!("Site with name '{}' does not exist", name),
-            })
-        }
-    }
-
-    /// Get all sites
-    pub fn all_sites(self) -> Vec<Site> {
-        self.sites.into_iter().map(|(_, site)| site).collect()
     }
 }
 
@@ -175,5 +161,22 @@ pub struct Site {
 impl Site {
     pub fn default_enabled() -> bool {
         true
+    }
+
+    pub fn from_string(name: String, value: String) -> Result<Self, ChimneyError> {
+        let site: Site = toml::from_str(&value).map_err(|e| ChimneyError::ParseError {
+            field: format!("sites.{}", name),
+            message: format!("Failed to parse site `{}`: {}", name, e),
+        })?;
+
+        // Ensure the site has a name
+        if site.name.is_empty() {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{}", name),
+                message: "Site name cannot be empty".to_string(),
+            });
+        }
+
+        Ok(site)
     }
 }
