@@ -128,6 +128,7 @@ pub struct Site {
     pub name: String,
 
     /// The root directory of the site (default: ".")
+    #[serde(default = "Site::default_root_directory")]
     pub root_directory: String,
 
     /// The domain names that the site responds to
@@ -163,8 +164,13 @@ impl Site {
         true
     }
 
-    pub fn from_string(name: String, value: String) -> Result<Self, ChimneyError> {
-        let site: Site = toml::from_str(&value).map_err(|e| ChimneyError::ParseError {
+    pub fn default_root_directory() -> String {
+        ".".to_string()
+    }
+
+    ///  Constructs a `Site` from a string representation
+    pub fn from_string(name: String, input: String) -> Result<Self, ChimneyError> {
+        let site: Site = toml::from_str(&input).map_err(|e| ChimneyError::ParseError {
             field: format!("sites.{}", name),
             message: format!("Failed to parse site `{}`: {}", name, e),
         })?;

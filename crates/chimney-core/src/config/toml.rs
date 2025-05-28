@@ -14,6 +14,7 @@ impl<'a> Toml<'a> {
     }
 }
 impl Toml<'_> {
+    /// Parses the sites from the TOML table and adds them to the config
     fn parse_sites(self, config: &mut Config, sites: &Table) -> Result<(), ChimneyError> {
         for (key, value) in sites.iter() {
             let name = key.to_string();
@@ -60,3 +61,4 @@ impl<'a> Format<'a> for Toml<'a> {
         Ok(config)
     }
 }
+
