@@ -1,10 +1,18 @@
-use std::fmt::Display;
+use serde::{Deserialize, Serialize};
+use std::{
+    fmt::Display,
+    net::{IpAddr, Ipv4Addr},
+    path::{Path, PathBuf},
+};
 
 /// Represents the available log levels
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum LogLevel {
-    Debug,
+    #[default]
     Info,
+    Debug,
     Warn,
     Error,
 }
@@ -33,26 +41,48 @@ impl Display for LogLevel {
 }
 
 /// The core configuration options available
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Config {
     /// The hostname or IP address to bind the server to (default: 0.0.0.0)
-    pub host: String,
+    #[serde(default = "Config::default_host")]
+    pub host: IpAddr,
 
-    /// The port number to bind the server to (default: 80)
+    /// The port number to bind the server to (default: 8080)
+    #[serde(default = "Config::default_port")]
     pub port: u16,
 
     /// The directories to look for sites in (default: "<current directory>/sites")
-    pub site_directory: Vec<String>,
+    #[serde(default = "Config::default_sites_dir")]
+    pub sites_directory: Vec<String>,
 
     /// The log level to use (default: "info")
+    #[serde(default)]
     pub log_level: LogLevel,
 
     /// The various site configurations
     pub sites: Vec<Site>,
 }
 
+impl Config {
+    pub fn default_host() -> IpAddr {
+        IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
+    }
+
+    pub fn default_port() -> u16 {
+        8080
+    }
+
+    pub fn default_sites_dir() -> Vec<String> {
+        // NOTE: there are cases where this can fail but the changes of hitting either are rare, so
+        // we should be fine here
+        let cwd = std::env::current_dir().unwrap();
+        let sites_path = cwd.join(Path::new("/sites"));
+        vec![sites_path.to_string_lossy().to_string()]
+    }
+}
+
 /// Represents the HTTPS configuration options
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct HttpsConfig {
     /// Whether HTTPS is enabled or not
     pub enabled: bool,
@@ -74,9 +104,10 @@ pub struct HttpsConfig {
 /// - defined as a separate site configuration file
 ///
 /// This makes it possible to update each site configuration independently or as part of a larger configuration update.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Site {
     /// Whether the site is enabled or not
+    #[serde(default = "Site::default_enabled")]
     pub enabled: bool,
 
     /// The name of the site
@@ -111,4 +142,10 @@ pub struct Site {
     ///
     /// For example, a request to `/old-path` can be rewritten to `/new-path` without the client knowing about it.
     pub rewrites: Option<Vec<(String, String)>>,
+}
+
+impl Site {
+    pub fn default_enabled() -> bool {
+        true
+    }
 }
