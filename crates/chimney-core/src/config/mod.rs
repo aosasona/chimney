@@ -1,5 +1,5 @@
-#[cfg(feature = "kdl")]
-pub mod kdl;
+#[cfg(feature = "toml")]
+pub mod toml;
 
 mod types;
 

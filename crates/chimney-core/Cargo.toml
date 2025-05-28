@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-kdl = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 
 [features]
-default = ["kdl"]
-kdl = ["dep:kdl"]
+default = ["toml"]
+toml = ["dep:toml"]
