@@ -42,7 +42,7 @@ pub struct Config {
     pub port: u16,
 
     /// The directories to look for sites in (default: "<current directory>/sites")
-    pub site_directories: Vec<String>,
+    pub site_directory: Vec<String>,
 
     /// The log level to use (default: "info")
     pub log_level: LogLevel,
