@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 toml = { workspace = true, optional = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 default = ["toml"]

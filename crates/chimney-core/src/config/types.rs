@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::error::ChimneyError;
+
 /// Represents the available log levels
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -60,7 +62,7 @@ pub struct Config {
     pub log_level: LogLevel,
 
     /// The various site configurations
-    pub sites: Vec<Site>,
+    sites: Vec<(String, Site)>,
 }
 
 impl Config {
@@ -78,6 +80,32 @@ impl Config {
         let cwd = std::env::current_dir().unwrap();
         let sites_path = cwd.join(Path::new("/sites"));
         vec![sites_path.to_string_lossy().to_string()]
+    }
+}
+
+impl Config {
+    /// Add a site to the sites config
+    pub fn add_site(mut self, site: Site) {
+        self.sites.push((site.name.clone(), site));
+    }
+
+    /// Remove a site from the sites list
+    pub fn remove_site(mut self, name: &str) -> Result<(), ChimneyError> {
+        // Check if it already exists
+        if let Some(pos) = self.sites.iter().position(|(n, _)| n == name) {
+            self.sites.remove(pos);
+            Ok(())
+        } else {
+            Err(ChimneyError::ConfigError {
+                field: "sites".to_string(),
+                message: format!("Site with name '{}' does not exist", name),
+            })
+        }
+    }
+
+    /// Get all sites
+    pub fn all_sites(self) -> Vec<Site> {
+        self.sites.into_iter().map(|(_, site)| site).collect()
     }
 }
 
