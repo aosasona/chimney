@@ -26,7 +26,7 @@ impl Toml<'_> {
             })?;
 
             // If the site was parsed successfully, add it to the config
-            config.sites.push((site.name.clone(), site));
+            config.add_site(site)?
         }
 
         Ok(())
@@ -61,4 +61,3 @@ impl<'a> Format<'a> for Toml<'a> {
         Ok(config)
     }
 }
-

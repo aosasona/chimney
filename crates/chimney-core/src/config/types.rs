@@ -95,20 +95,100 @@ impl Config {
     }
 }
 
+impl Config {
+    /// Gets the site configuration by name
+    pub fn get_site(&self, name: &str) -> Option<&Site> {
+        self.sites.iter().find_map(
+            |(site_name, site)| {
+                if site_name == name { Some(site) } else { None }
+            },
+        )
+    }
+
+    /// Adds a site configuration to the config
+    pub fn add_site(&mut self, site: Site) -> Result<(), ChimneyError> {
+        if self.get_site(&site.name).is_some() {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{}", site.name),
+                message: "Site with this name already exists".to_string(),
+            });
+        }
+        self.sites.push((site.name.clone(), site));
+        Ok(())
+    }
+
+    /// Updates an existing site configuration in the config
+    pub fn update_site(&mut self, site: Site) -> Result<(), ChimneyError> {
+        if let Some(pos) = self
+            .sites
+            .iter()
+            .position(|(site_name, _)| site_name == &site.name)
+        {
+            self.sites[pos] = (site.name.clone(), site);
+            Ok(())
+        } else {
+            Err(ChimneyError::ConfigError {
+                field: format!("sites.{}", site.name),
+                message: "Site with this name does not exist".to_string(),
+            })
+        }
+    }
+
+    /// Removes a site configuration from the config
+    pub fn remove_site(&mut self, name: &str) -> Result<(), ChimneyError> {
+        if let Some(pos) = self
+            .sites
+            .iter()
+            .position(|(site_name, _)| site_name == name)
+        {
+            self.sites.remove(pos);
+            Ok(())
+        } else {
+            Err(ChimneyError::ConfigError {
+                field: format!("sites.{}", name),
+                message: "Site with this name does not exist".to_string(),
+            })
+        }
+    }
+}
+
 /// Represents the HTTPS configuration options
 #[derive(Debug, Deserialize)]
-pub struct HttpsConfig {
+pub struct Https {
     /// Whether HTTPS is enabled or not
+    #[serde(default = "Https::default_enabled")]
     pub enabled: bool,
 
+    /// Whether to automatically issue certificates using Let's Encrypt or similar services
+    #[serde(default = "Https::default_auto_issue")]
+    pub auto_issue: bool,
+
+    /// Whether to automatically redirect HTTP requests to HTTPS
+    #[serde(default = "Https::default_auto_redirect")]
+    pub auto_redirect: bool,
+
     /// The path to the SSL certificate file
-    pub cert_file: String,
+    pub cert_file: Option<String>,
 
     /// The path to the SSL key file
-    pub key_file: String,
+    pub key_file: Option<String>,
 
     /// The path to the CA bundle file (optional)
     pub ca_bundle_file: Option<String>,
+}
+
+impl Https {
+    pub fn default_enabled() -> bool {
+        false
+    }
+
+    pub fn default_auto_redirect() -> bool {
+        true
+    }
+
+    pub fn default_auto_issue() -> bool {
+        true
+    }
 }
 
 /// Represents a site configuration
@@ -120,10 +200,6 @@ pub struct HttpsConfig {
 /// This makes it possible to update each site configuration independently or as part of a larger configuration update.
 #[derive(Debug, Deserialize)]
 pub struct Site {
-    /// Whether the site is enabled or not
-    #[serde(default = "Site::default_enabled")]
-    pub enabled: bool,
-
     /// The name of the site
     pub name: String,
 
@@ -139,7 +215,7 @@ pub struct Site {
     pub fallback: Option<String>,
 
     /// The HTTPS configuration for the site
-    pub https_config: Option<HttpsConfig>,
+    pub https_config: Option<Https>,
 
     /// The list of extra headers to include in the response
     /// Variables can be used here to fill in values dynamically from the request or the environment itself
