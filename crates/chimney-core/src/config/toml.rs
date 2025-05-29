@@ -18,12 +18,11 @@ impl Toml<'_> {
     fn parse_sites(self, config: &mut Config, sites: &Table) -> Result<(), ChimneyError> {
         for (key, value) in sites.iter() {
             let name = key.to_string();
-            let site = Site::from_string(name, value.to_string());
-
-            let site = site.map_err(|e| ChimneyError::ParseError {
-                field: format!("sites.{}", key),
-                message: format!("Failed to parse site `{}`: {}", key, e),
+            let table_value = value.as_table().ok_or_else(|| ChimneyError::ParseError {
+                field: format!("sites.{}", name),
+                message: "Expected a table for site configuration".to_string(),
             })?;
+            let site = Site::from_table(name, table_value.clone())?;
 
             // If the site was parsed successfully, add it to the config
             config.add_site(site)?
@@ -49,7 +48,7 @@ impl<'a> Format<'a> for Toml<'a> {
         // Read the sites configuration from the toml file if present
         let parsed = toml::from_str::<Table>(self.input).map_err(|e| ChimneyError::ParseError {
             field: "sites".to_string(),
-            message: format!("Failed to parse sites configuration: {}", e),
+            message: format!("Failed to parse global TOML configuration: {}", e),
         })?;
 
         if let Some(sites) = parsed.get("sites") {

@@ -4,6 +4,7 @@ use std::{
     net::{IpAddr, Ipv4Addr},
     path::Path,
 };
+use toml::Table;
 
 use crate::error::ChimneyError;
 
@@ -174,7 +175,7 @@ pub struct Https {
     pub key_file: Option<String>,
 
     /// The path to the CA bundle file (optional)
-    pub ca_bundle_file: Option<String>,
+    pub ca_file: Option<String>,
 }
 
 impl Https {
@@ -201,6 +202,7 @@ impl Https {
 #[derive(Debug, Deserialize)]
 pub struct Site {
     /// The name of the site
+    #[serde(skip_deserializing)]
     pub name: String,
 
     /// The root directory of the site (default: ".")
@@ -219,20 +221,23 @@ pub struct Site {
 
     /// The list of extra headers to include in the response
     /// Variables can be used here to fill in values dynamically from the request or the environment itself
-    pub response_headers: Option<Vec<(String, String)>>,
+    #[serde(default)]
+    pub response_headers: Vec<(String, String)>,
 
     /// A redirects mapping that maps a source path to a destination path
     /// A redirect is a permanent or temporary redirect from one URL to another, this makes proper
     /// use of the HTTP status codes and conforms to the HTTP standards.
     ///
     /// For example, a request to `/old-path` can be redirected to `/new-path` with a 301 or 302 status code.
-    pub redirects: Option<Vec<(String, String)>>,
+    #[serde(default)]
+    pub redirects: Vec<(String, String)>,
 
     /// A rewrites mapping that maps a source path to a destination path
     /// A rewrite is a way to change the target of a request without changing the source URL behind the scenes.
     ///
     /// For example, a request to `/old-path` can be rewritten to `/new-path` without the client knowing about it.
-    pub rewrites: Option<Vec<(String, String)>>,
+    #[serde(default)]
+    pub rewrites: Vec<(String, String)>,
 }
 
 impl Site {
@@ -244,12 +249,26 @@ impl Site {
         ".".to_string()
     }
 
-    ///  Constructs a `Site` from a string representation
-    pub fn from_string(name: String, input: String) -> Result<Self, ChimneyError> {
-        let site: Site = toml::from_str(&input).map_err(|e| ChimneyError::ParseError {
+    /// Constructs a `Site` from a string representation
+    pub fn from_string(name: String, input: &str) -> Result<Self, ChimneyError> {
+        // Parse the input string as a TOML table
+        let table: Table = toml::from_str(input).map_err(|e| ChimneyError::ParseError {
             field: format!("sites.{}", name),
             message: format!("Failed to parse site `{}`: {}", name, e),
         })?;
+
+        // Construct the site from the parsed table
+        Self::from_table(name, table)
+    }
+
+    ///  Constructs a `Site` from a TOML table
+    pub fn from_table(name: String, table: Table) -> Result<Self, ChimneyError> {
+        let mut site: Self = table.try_into().map_err(|e| ChimneyError::ParseError {
+            field: format!("sites.{}", name),
+            message: format!("Failed to parse site `{}`: {}", name, e),
+        })?;
+
+        site.name = name.clone();
 
         // Ensure the site has a name
         if site.name.is_empty() {
