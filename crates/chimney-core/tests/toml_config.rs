@@ -1,11 +1,11 @@
-use chimney_core::config::{Format, toml::Toml};
+use chimney_core::config::{Format, Site, toml::Toml};
 
 #[test]
 pub fn parse_root_config() {
     let input = r#"
     host = "0.0.0.0"
     port = 80
-    sites_directory = ["./sites"]
+    sites_directory = "./sites"
     log_level = "debug"
     "#;
 
@@ -14,10 +14,11 @@ pub fn parse_root_config() {
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
     assert_eq!(config.port, 80);
-    assert_eq!(config.sites_directory, vec!["./sites"]);
+    assert_eq!(config.sites_directory, "./sites");
     assert_eq!(config.log_level.to_string(), "debug");
     assert!(config.sites.is_empty(), "Expected no sites in the config");
 }
+
 #[test]
 pub fn parse_empty_root_config() {
     let input = "";
@@ -31,13 +32,11 @@ pub fn parse_empty_root_config() {
     assert_eq!(config.port, 8080);
     assert_eq!(
         config.sites_directory,
-        vec![
-            std::env::current_dir()
-                .unwrap()
-                .join("sites")
-                .to_string_lossy()
-                .to_string()
-        ]
+        std::env::current_dir()
+            .unwrap()
+            .join("sites")
+            .to_string_lossy()
+            .to_string()
     );
     assert_eq!(config.log_level.to_string(), "info");
     assert!(config.sites.is_empty(), "Expected no sites in the config");
@@ -59,16 +58,93 @@ pub fn parse_partial_root_config() {
     assert_eq!(config.port, 8080);
     assert_eq!(
         config.sites_directory,
-        vec![
-            std::env::current_dir()
-                .unwrap()
-                .join("sites")
-                .to_string_lossy()
-                .to_string()
-        ]
+        std::env::current_dir()
+            .unwrap()
+            .join("sites")
+            .to_string_lossy()
+            .to_string()
     );
     assert_eq!(config.log_level.to_string(), "warn");
     assert!(config.sites.is_empty(), "Expected no sites in the config");
 }
 
-// TODO: add tests for sites parsing
+#[test]
+pub fn parse_embedded_site_config_with_manual_https() {
+    let input = r#"
+    host = "0.0.0.0"
+    log_level = "warn"
+
+    [sites.example]
+    root = "./public"
+    domain_names = ["example.com"]
+    fallback = "index.html"
+    https_config = { enabled = true, cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
+    "#;
+
+    let toml_parser = Toml::new(input);
+    let config = toml_parser
+        .parse()
+        .expect("Failed to parse TOML config with embedded site");
+
+    assert_eq!(config.host.to_string(), "0.0.0.0");
+    assert_eq!(config.port, 8080);
+    assert_eq!(
+        config.sites_directory,
+        std::env::current_dir()
+            .unwrap()
+            .join("sites")
+            .to_string_lossy()
+            .to_string()
+    );
+    assert_eq!(config.log_level.to_string(), "warn");
+
+    assert_eq!(config.sites.len(), 1, "Expected one site in the config");
+
+    let site = config
+        .get_site("example")
+        .expect("Site 'example' not found");
+
+    assert_eq!(site.name, "example");
+    assert_eq!(site.root, "./public");
+    assert_eq!(site.domain_names, vec!["example.com"]);
+    assert_eq!(site.fallback, Some("index.html".to_string()));
+    assert!(
+        site.https_config.is_some(),
+        "Expected HTTPS config to be present"
+    );
+
+    let https_config = site.https_config.as_ref().unwrap();
+    assert!(https_config.enabled, "HTTPS should be enabled");
+    assert_eq!(https_config.cert_file, Some("tls/cert.pem".to_string()));
+    assert_eq!(https_config.key_file, Some("tls/key.pem".to_string()));
+    assert!(https_config.ca_file.is_none(), "CA file should not be set");
+}
+
+#[test]
+pub fn parse_standalone_site_config_with_manual_https() {
+    let name = "example";
+    let input = r#"
+    root = "./public"
+    domain_names = ["example.com"]
+    fallback = "index.html"
+    https_config = { enabled = true, cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
+    "#;
+
+    let site = Site::from_string(name.into(), input)
+        .expect("Failed to parse standalone site config with manual HTTPS");
+
+    assert_eq!(site.name, "example");
+    assert_eq!(site.root, "./public");
+    assert_eq!(site.domain_names, vec!["example.com"]);
+    assert_eq!(site.fallback, Some("index.html".to_string()));
+    assert!(
+        site.https_config.is_some(),
+        "Expected HTTPS config to be present"
+    );
+
+    let https_config = site.https_config.as_ref().unwrap();
+    assert!(https_config.enabled, "HTTPS should be enabled");
+    assert_eq!(https_config.cert_file, Some("tls/cert.pem".to_string()));
+    assert_eq!(https_config.key_file, Some("tls/key.pem".to_string()));
+    assert!(https_config.ca_file.is_none(), "CA file should not be set");
+}
