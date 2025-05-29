@@ -54,7 +54,7 @@ pub struct Config {
 
     /// The directories to look for sites in (default: "<current directory>/sites")
     #[serde(default = "Config::default_sites_dir")]
-    pub sites_directory: Vec<String>,
+    pub sites_directory: String,
 
     /// The log level to use (default: "info")
     #[serde(default)]
@@ -86,12 +86,12 @@ impl Config {
         8080
     }
 
-    pub fn default_sites_dir() -> Vec<String> {
+    pub fn default_sites_dir() -> String {
         // NOTE: there are cases where this can fail but the changes of hitting either are rare, so
         // we should be fine here
         let cwd = std::env::current_dir().unwrap_or(Path::new(".").to_path_buf());
         let sites_path = cwd.join("sites");
-        vec![sites_path.to_string_lossy().to_string()]
+        sites_path.to_string_lossy().to_string()
     }
 }
 
@@ -205,7 +205,7 @@ pub struct Site {
 
     /// The root directory of the site (default: ".")
     #[serde(default = "Site::default_root_directory")]
-    pub root_directory: String,
+    pub root: String,
 
     /// The domain names that the site responds to
     pub domain_names: Vec<String>,
