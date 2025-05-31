@@ -10,4 +10,7 @@ pub enum ChimneyError {
 
     #[error("{0}")]
     GenericError(String),
+
+    #[error("{0}")]
+    IOError(#[from] std::io::Error),
 }
