@@ -35,6 +35,9 @@ impl Server {
         filesystem: Box<dyn crate::filesystem::Filesystem>,
         config: crate::config::Config,
     ) -> Self {
+        // TODO: create an instance-level tracing subscriber instead of a global one here
+        // TODO: remove `tracng_subscriber` dependency as recommended by the docs
+
         // Initialize tracing for the server
         init_tracing!(debug);
 
