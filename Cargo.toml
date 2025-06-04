@@ -16,9 +16,11 @@ readme = "README.md"
 tokio = { version = "1.45.1" }
 bytes = "1.10.1"
 chrono = "0.4.41"
+clap = { version = "4.5.39", features = ["derive"] }
 hyper = { version = "1.6.0", features = ["http1", "server"] }
 hyper-util = { version = "0.1.12", features = ["tokio"] }
 toml = { version = "0.8.22" }
 serde = { version = "1.0.219", features = ["derive"] }
 thiserror = { version = "2.0.12" }
-clap = { version = "4.5.39", features = ["derive"] }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.19" }

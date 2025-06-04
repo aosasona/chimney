@@ -22,4 +22,15 @@ impl Server {
     pub fn set_debug(&mut self, debug: bool) {
         self.debug = debug;
     }
+
+    pub async fn run(&self) -> Result<(), crate::error::ChimneyError> {
+        // Here you would implement the logic to start the server
+        // For now, we just print the configuration and return Ok
+        if self.debug {
+            dbg!(&self.config);
+            println!("Running in debug mode");
+        }
+
+        unimplemented!("Implement server logic here");
+    }
 }
