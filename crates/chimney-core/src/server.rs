@@ -9,18 +9,40 @@ pub struct Server {
     config: crate::config::Config,
 }
 
+macro_rules! init_tracing {
+    ($debug:expr) => {
+        let log_level = if $debug {
+            tracing::Level::DEBUG
+        } else {
+            tracing::Level::INFO
+        };
+
+        let _ = tracing_subscriber::fmt()
+            .with_thread_ids(true)
+            .with_thread_names(true)
+            .with_level(true)
+            .with_target(false)
+            .with_file(true)
+            .with_line_number(true)
+            .with_max_level(log_level)
+            .try_init();
+    };
+}
+
 impl Server {
-    pub fn new(fs: Box<dyn crate::filesystem::Filesystem>, config: crate::config::Config) -> Self {
-        Self {
-            debug: false, // Default to false; can be set later if needed
-            filesystem: fs,
+    pub fn new(
+        debug: bool,
+        filesystem: Box<dyn crate::filesystem::Filesystem>,
+        config: crate::config::Config,
+    ) -> Self {
+        // Initialize tracing for the server
+        init_tracing!(debug);
+
+        Server {
+            debug,
+            filesystem,
             config,
         }
-    }
-
-    /// Sets the debug mode for the server
-    pub fn set_debug(&mut self, debug: bool) {
-        self.debug = debug;
     }
 
     pub async fn run(&self) -> Result<(), crate::error::ChimneyError> {
