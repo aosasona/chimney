@@ -21,3 +21,4 @@ hyper-util = { version = "0.1.12", features = ["tokio"] }
 toml = { version = "0.8.22" }
 serde = { version = "1.0.219", features = ["derive"] }
 thiserror = { version = "2.0.12" }
+clap = { version = "4.5.39", features = ["derive"] }

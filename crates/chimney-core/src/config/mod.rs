@@ -14,3 +14,8 @@ pub trait Format<'a> {
     /// Parse the provided document and return a fully parsed config
     fn parse(self) -> Result<Config, ChimneyError>;
 }
+
+/// Returns the default configuration string for TOML format
+pub fn default_config_string() -> &'static str {
+    include_str!("default.toml")
+}

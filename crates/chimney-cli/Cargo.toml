@@ -1,0 +1,8 @@
+[package]
+name = "chimney-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { workspace = true }
+chimney = { path = "../chimney-core" }
