@@ -12,33 +12,56 @@ use crate::error::ChimneyError;
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
+    Off,
+    Error,
+    Warn,
     #[default]
     Info,
     Debug,
-    Warn,
-    Error,
+    Trace,
 }
 
-impl From<&str> for LogLevel {
-    fn from(level: &str) -> Self {
-        match level.to_lowercase().as_str() {
-            "debug" => LogLevel::Debug,
-            "info" => LogLevel::Info,
-            "warn" => LogLevel::Warn,
-            "error" => LogLevel::Error,
-            _ => LogLevel::Info, // Default to Info if unrecognized
+impl LogLevel {
+    /// Converts the log level to a `log::LevelFilter`
+    pub fn to_log_level_filter(&self) -> log::LevelFilter {
+        match self {
+            LogLevel::Off => log::LevelFilter::Off,
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
+        }
+    }
+}
+
+impl std::str::FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "off" => Ok(LogLevel::Off),
+            "error" => Ok(LogLevel::Error),
+            "warn" => Ok(LogLevel::Warn),
+            "info" => Ok(LogLevel::Info),
+            "debug" => Ok(LogLevel::Debug),
+            "trace" => Ok(LogLevel::Trace),
+            _ => Err(format!("Invalid log level: {}", s)),
         }
     }
 }
 
 impl Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LogLevel::Debug => write!(f, "debug"),
-            LogLevel::Info => write!(f, "info"),
-            LogLevel::Warn => write!(f, "warn"),
-            LogLevel::Error => write!(f, "error"),
-        }
+        let level_str = match self {
+            LogLevel::Off => "off",
+            LogLevel::Error => "error",
+            LogLevel::Warn => "warn",
+            LogLevel::Info => "info",
+            LogLevel::Debug => "debug",
+            LogLevel::Trace => "trace",
+        };
+        write!(f, "{}", level_str)
     }
 }
 
@@ -59,7 +82,7 @@ pub struct Config {
 
     /// The log level to use (default: "info")
     #[serde(default)]
-    pub log_level: LogLevel,
+    pub log_level: Option<LogLevel>,
 
     /// The various site configurations
     #[serde(skip_deserializing)]
@@ -72,7 +95,7 @@ impl Default for Config {
             host: Config::default_host(),
             port: Config::default_port(),
             sites_directory: Config::default_sites_dir(),
-            log_level: LogLevel::Info,
+            log_level: Some(LogLevel::Info),
             sites: Vec::new(),
         }
     }

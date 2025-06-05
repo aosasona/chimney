@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use chimney::config::LogLevel;
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Subcommand)]
@@ -29,9 +30,9 @@ pub struct Cli {
     /// The name of the application
     name: String,
 
-    /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
+    #[arg(short, long, default_value = "info")]
+    /// The log level for the application
+    log_level: Option<LogLevel>,
 
     #[clap(subcommand)]
     pub command: Commands,
@@ -39,11 +40,18 @@ pub struct Cli {
 
 impl Cli {
     pub fn new() -> Self {
-        Cli::parse()
-    }
+        // Init CLI parser
+        let cli = Cli::parse();
 
-    /// Return the debug state of the CLI
-    pub fn debug(&self) -> bool {
-        self.debug > 0
+        // Set the log level based on the CLI argument
+        // NOTE: this will always override the log level set in the configuration file
+        let level = cli
+            .log_level
+            .clone()
+            .unwrap_or(LogLevel::Info)
+            .to_log_level_filter();
+        env_logger::Builder::new().filter_level(level).init();
+
+        cli
     }
 }

@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 clap = { workspace = true }
 chimney = { path = "../chimney-core" }
+env_logger = { workspace = true }

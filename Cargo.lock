@@ -78,6 +78,7 @@ version = "0.1.0"
 dependencies = [
  "chimney",
  "clap",
+ "env_logger",
 ]
 
 [[package]]
