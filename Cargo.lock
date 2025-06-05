@@ -115,6 +115,7 @@ dependencies = [
  "chimney",
  "clap",
  "env_logger",
+ "log",
  "tokio",
 ]
 
