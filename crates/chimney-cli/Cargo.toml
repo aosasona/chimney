@@ -7,3 +7,4 @@ edition = "2024"
 clap = { workspace = true }
 chimney = { path = "../chimney-core" }
 env_logger = { workspace = true }
+tokio = { workspace = true }

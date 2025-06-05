@@ -1,5 +1,7 @@
 pub(crate) mod cli;
 
-fn main() {
-    println!("Hello, world!");
+#[tokio::main]
+async fn main() {
+    let cli = cli::Cli::new();
+    todo!()
 }

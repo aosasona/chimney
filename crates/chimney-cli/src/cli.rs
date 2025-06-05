@@ -39,19 +39,42 @@ pub struct Cli {
 }
 
 impl Cli {
+    /// Creates a new instance of the CLI struct, initializing the CLI parser and setting the log level.
     pub fn new() -> Self {
         // Init CLI parser
-        let cli = Cli::parse();
+        Cli::parse()
+    }
 
-        // Set the log level based on the CLI argument
-        // NOTE: this will always override the log level set in the configuration file
-        let level = cli
+    /// Set the log level for the application based on the CLI argument.
+    fn set_log_level(&self) {
+        // NOTE: this should ALWAYS override the log level set in the configuration file
+        let level = self
             .log_level
             .clone()
             .unwrap_or(LogLevel::Info)
             .to_log_level_filter();
-        env_logger::Builder::new().filter_level(level).init();
 
-        cli
+        env_logger::Builder::new().filter_level(level).init();
+    }
+
+    pub async fn run(&self) -> Result<(), chimney::error::ChimneyError> {
+        // Set the log level based on the CLI argument
+        self.set_log_level();
+
+        match &self.command {
+            Commands::Run { config } => {
+                unimplemented!("Run command is not implemented yet. Config: {}", config);
+            }
+            Commands::Init { target_dir } => {
+                unimplemented!(
+                    "Init command is not implemented yet. Target directory: {:?}",
+                    target_dir
+                );
+            }
+            Commands::Version => {
+                println!("Chimney CLI version: {}", env!("CARGO_PKG_VERSION"));
+                Ok(())
+            }
+        }
     }
 }

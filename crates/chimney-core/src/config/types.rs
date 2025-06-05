@@ -12,13 +12,13 @@ use crate::error::ChimneyError;
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
-    Off,
-    Error,
-    Warn,
+    Off = 0,
+    Error = 1,
+    Warn = 2,
     #[default]
-    Info,
-    Debug,
-    Trace,
+    Info = 3,
+    Debug = 4,
+    Trace = 5,
 }
 
 impl LogLevel {
@@ -32,6 +32,11 @@ impl LogLevel {
             LogLevel::Debug => log::LevelFilter::Debug,
             LogLevel::Trace => log::LevelFilter::Trace,
         }
+    }
+
+    /// Checks if the current log level is lower than the provided log level
+    pub fn is_higher_than(&self, other: &LogLevel) -> bool {
+        self.to_log_level_filter() > other.to_log_level_filter()
     }
 }
 
