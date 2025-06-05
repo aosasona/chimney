@@ -1,4 +1,4 @@
-use chimney_core::config::{Format, Site, toml::Toml};
+use chimney::config::{Format, LogLevel, Site, toml::Toml};
 
 #[test]
 pub fn parse_root_config() {
@@ -15,7 +15,7 @@ pub fn parse_root_config() {
     assert_eq!(config.host.to_string(), "0.0.0.0");
     assert_eq!(config.port, 80);
     assert_eq!(config.sites_directory, "./sites");
-    assert_eq!(config.log_level.to_string(), "debug");
+    assert_eq!(config.log_level, Some(LogLevel::Debug));
     assert!(config.sites.is_empty(), "Expected no sites in the config");
 }
 
@@ -38,7 +38,7 @@ pub fn parse_empty_root_config() {
             .to_string_lossy()
             .to_string()
     );
-    assert_eq!(config.log_level.to_string(), "info");
+    assert_eq!(config.log_level, None);
     assert!(config.sites.is_empty(), "Expected no sites in the config");
 }
 
@@ -64,7 +64,7 @@ pub fn parse_partial_root_config() {
             .to_string_lossy()
             .to_string()
     );
-    assert_eq!(config.log_level.to_string(), "warn");
+    assert_eq!(config.log_level, Some(LogLevel::Warn));
     assert!(config.sites.is_empty(), "Expected no sites in the config");
 }
 
@@ -96,7 +96,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
             .to_string_lossy()
             .to_string()
     );
-    assert_eq!(config.log_level.to_string(), "warn");
+    assert_eq!(config.log_level, Some(LogLevel::Warn));
 
     assert_eq!(config.sites.len(), 1, "Expected one site in the config");
 
