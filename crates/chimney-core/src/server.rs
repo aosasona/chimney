@@ -2,12 +2,10 @@ use std::{net::SocketAddr, sync::Arc};
 
 use log::debug;
 
-use crate::{
-    config::LogLevel,
-    error::{ChimneyError, ServerError},
-};
+use crate::{config::LogLevel, error::ServerError};
 use tokio::sync::Notify;
 
+// TODO: build a domain and sites map to easily lookup sites by domain
 pub struct Server {
     /// The current global log level (this could be from a CLI argument or environment variable)
     global_log_level: LogLevel,
