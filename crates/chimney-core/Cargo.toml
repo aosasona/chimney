@@ -9,6 +9,7 @@ toml = { workspace = true, optional = true }
 thiserror = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
+tokio = { workspace = true }
 
 [features]
 default = ["toml"]

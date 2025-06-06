@@ -105,6 +105,7 @@ dependencies = [
  "log",
  "serde",
  "thiserror",
+ "tokio",
  "toml",
 ]
 
