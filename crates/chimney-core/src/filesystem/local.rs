@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::Filesystem;
+use super::{AbstractFile, Content, Filesystem, FilesystemError};
 
 pub struct LocalFS {
     path: PathBuf,
@@ -17,29 +17,50 @@ impl LocalFS {
 }
 
 impl Filesystem for LocalFS {
-    fn read_dir(self, path: PathBuf) -> Vec<std::fs::File> {
-        let mut files = Vec::new();
-        if let Ok(entries) = std::fs::read_dir(path) {
-            for entry in entries.flatten() {
-                if let Ok(file) = std::fs::File::open(entry.path()) {
-                    files.push(file);
-                }
-            }
-        }
+    fn read_dir(&self, path: PathBuf) -> Result<Vec<AbstractFile>, FilesystemError> {
+        let files = self
+            .list_files(path.clone())
+            .map_err(|e| FilesystemError::ReadDirError {
+                path: path.clone(),
+                message: e.to_string(),
+            })?;
+
         files
+            .into_iter()
+            .map(AbstractFile::from_disk_path)
+            .collect()
     }
 
-    fn list_files(self, path: PathBuf) -> Vec<PathBuf> {
-        let mut files = Vec::new();
-        if let Ok(entries) = std::fs::read_dir(path) {
-            for entry in entries.flatten() {
-                files.push(entry.path());
-            }
-        }
-        files
+    fn list_files(&self, path: PathBuf) -> Result<Vec<PathBuf>, FilesystemError> {
+        let dir = path
+            .canonicalize()
+            .map_err(|e| FilesystemError::ListFilesError {
+                path: path.clone(),
+                message: e.to_string(),
+            })?;
+
+        let entries =
+            std::fs::read_dir(&dir).map_err(|e| FilesystemError::GenericError(e.to_string()))?;
+
+        let files: Vec<PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .collect();
+
+        Ok(files)
     }
 
-    fn read_file(self, path: PathBuf) -> Result<std::fs::File, crate::error::ChimneyError> {
-        std::fs::File::open(path).map_err(crate::error::ChimneyError::IOError)
+    fn read_file(&self, path: PathBuf) -> Result<Content, FilesystemError> {
+        let content =
+            std::fs::read_to_string(&path).map_err(|e| FilesystemError::ReadFileError {
+                path: path.clone(),
+                message: e.to_string(),
+            })?;
+
+        Ok(Content::new(content))
+    }
+
+    fn get_file_metadata(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError> {
+        AbstractFile::from_disk_path(path)
     }
 }
