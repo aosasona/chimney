@@ -29,6 +29,7 @@ pub enum FilesystemError {
     GenericError(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileType {
     File,
     Directory,
@@ -38,6 +39,7 @@ pub enum FileType {
 /// Represents an abstract file in the filesystem.
 /// This could point to an actual file on the disk, an object store like S3, or any other storage mechanism.
 /// It contains metadata about the file, such as its path, content, type, and timestamps.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AbstractFile {
     pub path: PathBuf,
 
@@ -60,6 +62,7 @@ pub struct AbstractFile {
 /// Represents the content of a file, including its size.
 ///
 /// This is designed as a separate struct to encapsulate the content and its size, for lazy loading the content of file as dictated by the concrete implementation of the `Filesystem` trait.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Content {
     /// The content of the file as a string.
     content: String,
@@ -76,7 +79,7 @@ impl Content {
     }
 
     /// Gets the content of the file.
-    pub fn content(&self) -> &str {
+    pub fn text(&self) -> &str {
         &self.content
     }
 
