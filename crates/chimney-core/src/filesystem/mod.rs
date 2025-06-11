@@ -4,8 +4,6 @@ use thiserror::Error;
 use crate::error::ChimneyError;
 
 pub mod local;
-
-#[cfg(test)]
 pub mod mock;
 
 #[derive(Debug, Error)]
