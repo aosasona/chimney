@@ -27,9 +27,6 @@ pub enum Commands {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
-    /// The name of the application
-    name: String,
-
     #[arg(short, long, default_value = "info")]
     /// The log level for the application
     log_level: Option<LogLevel>,
