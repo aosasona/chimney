@@ -9,10 +9,10 @@ use crate::error::ChimneyError;
 
 pub trait Format<'a> {
     /// Set the input document
-    fn set_input(self, input: &'a str);
+    fn set_input(&mut self, input: &'a str);
 
     /// Parse the provided document and return a fully parsed config
-    fn parse(self) -> Result<Config, ChimneyError>;
+    fn parse(&self) -> Result<Config, ChimneyError>;
 }
 
 /// Returns the default configuration string for TOML format

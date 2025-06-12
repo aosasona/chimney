@@ -1,3 +1,4 @@
+#![allow(unused)] // TODO: remove
 use std::{net::SocketAddr, sync::Arc};
 
 use log::debug;

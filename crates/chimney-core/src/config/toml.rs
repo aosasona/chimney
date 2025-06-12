@@ -15,7 +15,7 @@ impl<'a> Toml<'a> {
 }
 impl Toml<'_> {
     /// Parses the sites from the TOML table and adds them to the config
-    fn parse_sites(self, config: &mut Config, sites: &Table) -> Result<(), ChimneyError> {
+    fn parse_sites(&self, config: &mut Config, sites: &Table) -> Result<(), ChimneyError> {
         for (key, value) in sites.iter() {
             let name = key.to_string();
             let table_value = value.as_table().ok_or_else(|| ChimneyError::ParseError {
@@ -32,12 +32,18 @@ impl Toml<'_> {
     }
 }
 
+impl<'a> From<&'a str> for Toml<'a> {
+    fn from(input: &'a str) -> Self {
+        Toml::new(input)
+    }
+}
+
 impl<'a> Format<'a> for Toml<'a> {
-    fn set_input(mut self, input: &'a str) {
+    fn set_input(&mut self, input: &'a str) {
         self.input = input
     }
 
-    fn parse(self) -> Result<super::Config, ChimneyError> {
+    fn parse(&self) -> Result<super::Config, ChimneyError> {
         // Read the root configuration from the toml file
         let mut config: Config =
             toml::from_str(self.input).map_err(|e| ChimneyError::ParseError {
