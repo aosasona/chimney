@@ -35,6 +35,11 @@ impl Server {
         }
     }
 
+    /// Get the current configuration of the server.
+    pub fn config(&self) -> &crate::config::Config {
+        &self.config
+    }
+
     /// Watch for a shutdown signal (like Ctrl+C) and notify the server to shut down gracefully.
     async fn watch_for_shutdown(&self) {
         let signal = Arc::clone(&self.signal);
@@ -49,7 +54,7 @@ impl Server {
     }
 
     /// Get the socket address for the server based on the configuration.
-    fn get_socket_address(&self) -> Result<SocketAddr, ServerError> {
+    pub fn get_socket_address(&self) -> Result<SocketAddr, ServerError> {
         // Prevent the use of possibly reserved ports
         if self.config.port <= 1024 {
             return Err(ServerError::InvalidPortRange {
