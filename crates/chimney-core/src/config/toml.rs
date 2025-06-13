@@ -4,6 +4,7 @@ use crate::error::ChimneyError;
 
 use super::{Config, Format, Site};
 
+#[derive(Default)]
 pub struct Toml<'a> {
     input: &'a str,
 }
@@ -39,6 +40,17 @@ impl<'a> From<&'a str> for Toml<'a> {
 }
 
 impl<'a> Format<'a> for Toml<'a> {
+    fn from_str(input: &'a str) -> Self {
+        Toml::new(input)
+    }
+
+    fn to_string(&self, config: &Config) -> String {
+        // Convert the config to a TOML string representation
+        toml::to_string(config).unwrap_or_else(|e| {
+            panic!("Failed to convert config to TOML string: {}", e);
+        })
+    }
+
     fn set_input(&mut self, input: &'a str) {
         self.input = input
     }
@@ -64,5 +76,9 @@ impl<'a> Format<'a> for Toml<'a> {
         }
 
         Ok(config)
+    }
+
+    fn extension(&self) -> &'static str {
+        "toml"
     }
 }

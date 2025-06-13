@@ -8,6 +8,8 @@ use toml::Table;
 
 use crate::error::ChimneyError;
 
+use super::Format;
+
 /// Represents the available log levels
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -71,7 +73,7 @@ impl Display for LogLevel {
 }
 
 /// The core configuration options available
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     /// The hostname or IP address to bind the server to (default: 0.0.0.0)
     #[serde(default = "Config::default_host")]
@@ -179,10 +181,25 @@ impl Config {
             })
         }
     }
+
+    /// Writes the configuration to a file in the specified format
+    pub fn write_to_file<P: AsRef<Path>>(
+        &self,
+        path: P,
+        format: &dyn Format<'_>,
+    ) -> Result<(), ChimneyError> {
+        // Convert the configuration to a string representation in the specified format
+        let config_str = format.to_string(self);
+
+        // Write the string representation to the file
+        std::fs::write(path, config_str).map_err(ChimneyError::IOError)?;
+
+        Ok(())
+    }
 }
 
 /// Represents the HTTPS configuration options
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Https {
     /// Whether HTTPS is enabled or not
     #[serde(default = "Https::default_enabled")]
@@ -227,7 +244,7 @@ impl Https {
 /// - defined as a separate site configuration file
 ///
 /// This makes it possible to update each site configuration independently or as part of a larger configuration update.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Site {
     /// The name of the site
     #[serde(skip_deserializing)]
