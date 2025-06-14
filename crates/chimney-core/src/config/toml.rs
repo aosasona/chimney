@@ -44,10 +44,10 @@ impl<'a> Format<'a> for Toml<'a> {
         Toml::new(input)
     }
 
-    fn to_string(&self, config: &Config) -> String {
+    fn to_format_string(&self, config: &Config) -> Result<String, ChimneyError> {
         // Convert the config to a TOML string representation
-        toml::to_string(config).unwrap_or_else(|e| {
-            panic!("Failed to convert config to TOML string: {}", e);
+        toml::to_string(config).map_err(|e| {
+            ChimneyError::GenericError(format!("Failed to convert config to TOML string: {}", e))
         })
     }
 

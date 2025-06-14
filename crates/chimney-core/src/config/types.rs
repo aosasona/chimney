@@ -92,7 +92,7 @@ pub struct Config {
     pub log_level: Option<LogLevel>,
 
     /// The various site configurations
-    #[serde(skip_deserializing)]
+    #[serde(skip_deserializing, skip_serializing_if = "Vec::is_empty")]
     pub sites: Vec<(String, Site)>,
 }
 
@@ -186,10 +186,10 @@ impl Config {
     pub fn write_to_file<P: AsRef<Path>>(
         &self,
         path: P,
-        format: &dyn Format<'_>,
+        format: Box<dyn Format<'_>>,
     ) -> Result<(), ChimneyError> {
         // Convert the configuration to a string representation in the specified format
-        let config_str = format.to_string(self);
+        let config_str = format.to_format_string(self)?;
 
         // Write the string representation to the file
         std::fs::write(path, config_str).map_err(ChimneyError::IOError)?;

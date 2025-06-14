@@ -20,7 +20,7 @@ pub trait Format<'a> {
         Self: Sized;
 
     /// Convert the format to a string representation
-    fn to_string(&self, config: &Config) -> String;
+    fn to_format_string(&self, config: &Config) -> Result<String, ChimneyError>;
 
     /// Get the file extension for the format
     fn extension(&self) -> &'static str;
