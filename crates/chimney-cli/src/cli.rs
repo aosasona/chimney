@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Start the server with the provided configuration
-    Run {
+    Serve {
         /// Path to the configuration file
         #[arg(short, long, help = "Path to the Chimney configuration file")]
         config_path: Option<String>,
@@ -87,7 +87,7 @@ impl Cli {
         self.set_log_level();
 
         match &self.command {
-            Commands::Run { config_path } => {
+            Commands::Serve { config_path } => {
                 let config = self.load_config(config_path)?;
                 log::info!("Parsed configuration: {:?}", config);
                 self.run_server(&config).await
