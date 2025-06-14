@@ -73,7 +73,7 @@ impl Display for LogLevel {
 }
 
 /// The core configuration options available
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     /// The hostname or IP address to bind the server to (default: 0.0.0.0)
     #[serde(default = "Config::default_host")]
@@ -199,7 +199,7 @@ impl Config {
 }
 
 /// Represents the HTTPS configuration options
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Https {
     /// Whether HTTPS is enabled or not
     #[serde(default = "Https::default_enabled")]
@@ -244,7 +244,7 @@ impl Https {
 /// - defined as a separate site configuration file
 ///
 /// This makes it possible to update each site configuration independently or as part of a larger configuration update.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Site {
     /// The name of the site
     #[serde(skip_deserializing)]
