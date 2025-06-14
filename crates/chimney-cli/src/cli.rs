@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use chimney::config::{self, Config, Format, LogLevel};
+use chimney::{
+    config::{self, Config, Format, LogLevel},
+    filesystem, server,
+};
 use clap::{Parser, Subcommand};
 
 use crate::{
@@ -88,9 +91,9 @@ impl Cli {
 
         match &self.command {
             Commands::Serve { config_path } => {
-                let config = self.load_config(config_path)?;
+                let mut config = self.load_config(config_path)?;
                 log::info!("Parsed configuration: {:?}", config);
-                self.run_server(&config).await
+                self.run_server(&mut config).await
             }
             Commands::Init { path, format } => self.generate_default_config(path.clone(), format),
             Commands::Version => {
@@ -101,8 +104,17 @@ impl Cli {
     }
 
     /// Run the Chimney server with the provided configuration.
-    async fn run_server(&self, config: &Config) -> Result<(), error::CliError> {
-        log::info!("{:?}", config);
+    async fn run_server(&self, config: &mut Config) -> Result<(), error::CliError> {
+        let fs = filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
+            .map_err(CliError::Filesystem)?;
+        let boxed_fs: Box<dyn filesystem::Filesystem> = Box::new(fs);
+        let server = server::Server::new(boxed_fs, config);
+
+        // Start the server
+        server
+            .run()
+            .await
+            .map_err(|e| CliError::Generic(format!("Failed to start the server: {}", e)))?;
 
         Ok(())
     }

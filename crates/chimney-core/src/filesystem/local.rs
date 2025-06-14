@@ -7,8 +7,15 @@ pub struct LocalFS {
 }
 
 impl LocalFS {
-    pub fn new(path: PathBuf) -> Self {
-        Self { path }
+    pub fn new(path: PathBuf) -> Result<Self, FilesystemError> {
+        if !path.exists() {
+            return Err(FilesystemError::GenericError(format!(
+                "The specified path does not exist: {}",
+                path.display()
+            )));
+        }
+
+        Ok(Self { path })
     }
 
     pub fn path(&self) -> &PathBuf {

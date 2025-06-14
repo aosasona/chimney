@@ -7,42 +7,50 @@ use crate::{config::LogLevel, error::ServerError};
 use tokio::sync::Notify;
 
 // TODO: build a domain and sites map to easily lookup sites by domain
-pub struct Server {
-    /// The current global log level (this could be from a CLI argument or environment variable)
-    global_log_level: LogLevel,
-
+pub struct Server<'a> {
     /// The filesystem abstraction used by the server
     filesystem: Box<dyn crate::filesystem::Filesystem>,
 
     /// The configuration for the server
-    config: crate::config::Config,
+    config: &'a mut crate::config::Config,
 
     /// The shutdown signal for the server
     signal: Arc<Notify>,
+
+    /// Whether to shut down gracefully (default: true)
+    graceful_shutdown: bool,
 }
 
-impl Server {
+impl<'a> Server<'a> {
     pub fn new(
-        global_log_level: LogLevel,
         filesystem: Box<dyn crate::filesystem::Filesystem>,
-        config: crate::config::Config,
+        config: &'a mut crate::config::Config,
     ) -> Self {
         debug!("Creating a new Chimney server instance");
         Server {
-            global_log_level,
             filesystem,
             config,
             signal: Arc::new(Notify::new()),
+            graceful_shutdown: true,
         }
     }
 
     /// Get the current configuration of the server.
     pub fn config(&self) -> &crate::config::Config {
-        &self.config
+        self.config
+    }
+
+    pub fn set_graceful_shutdown(&mut self, graceful: bool) {
+        self.graceful_shutdown = graceful;
     }
 
     /// Watch for a shutdown signal (like Ctrl+C) and notify the server to shut down gracefully.
     async fn watch_for_shutdown(&self) {
+        if !self.graceful_shutdown {
+            debug!("Graceful shutdown is disabled, skipping signal watcher");
+            return;
+        }
+
         let signal = Arc::clone(&self.signal);
         tokio::spawn(async move {
             tokio::signal::ctrl_c()
@@ -73,6 +81,8 @@ impl Server {
     }
 
     pub async fn run(&self) -> Result<(), crate::error::ChimneyError> {
+        // TODO: handle signal listening for graceful shutdown if enabled
+
         // Here you would implement the logic to start the server
         // For now, we just print the configuration and return Ok
         debug!(

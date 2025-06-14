@@ -8,6 +8,9 @@ pub(crate) enum CliError {
     #[error("{0}")]
     Chimney(#[from] chimney::error::ChimneyError),
 
-    #[error("{0}")]
+    #[error("An error occured: {0}")]
     Generic(String),
+
+    #[error("A filesystem error occurred: {0}")]
+    Filesystem(#[from] chimney::filesystem::FilesystemError),
 }
