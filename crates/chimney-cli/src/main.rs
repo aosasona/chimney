@@ -1,4 +1,5 @@
 pub(crate) mod cli;
+pub(crate) mod error;
 pub(crate) mod format;
 
 #[tokio::main]

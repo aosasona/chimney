@@ -1,25 +1,20 @@
 use std::path::PathBuf;
 
-use chimney::{
-    config::{self, Config, Format, LogLevel},
-    error::ChimneyError,
-};
+use chimney::config::{self, Config, Format, LogLevel};
 use clap::{Parser, Subcommand};
 
-use crate::format::FormatType;
+use crate::{
+    error::{self, CliError},
+    format::FormatType,
+};
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Start the server with the provided configuration
     Run {
         /// Path to the configuration file
-        #[arg(
-            short,
-            long,
-            default_value = "chimney.toml",
-            help = "Path to the Chimney configuration file"
-        )]
-        config: String,
+        #[arg(short, long, help = "Path to the Chimney configuration file")]
+        config_path: Option<String>,
     },
 
     /// Create a new chimney configuration file in the target directory
@@ -87,13 +82,14 @@ impl Cli {
     }
 
     /// Execute the CLI command based on the parsed arguments.
-    pub async fn execute(&self) -> Result<(), chimney::error::ChimneyError> {
+    pub async fn execute(&self) -> Result<(), error::CliError> {
         // Set the log level based on the CLI argument
         self.set_log_level();
 
         match &self.command {
-            Commands::Run { config } => {
-                let config = config::toml::Toml::from(config.as_str()).parse()?;
+            Commands::Run { config_path } => {
+                let config = self.load_config(config_path)?;
+                log::info!("Parsed configuration: {:?}", config);
                 self.run_server(&config).await
             }
             Commands::Init { path, format } => self.generate_default_config(path.clone(), format),
@@ -105,20 +101,51 @@ impl Cli {
     }
 
     /// Run the Chimney server with the provided configuration.
-    async fn run_server(&self, _config: &Config) -> Result<(), chimney::error::ChimneyError> {
-        unimplemented!()
+    async fn run_server(&self, config: &Config) -> Result<(), error::CliError> {
+        log::info!("{:?}", config);
+
+        Ok(())
+    }
+
+    /// Load the chimney configuration from the specified file path.
+    /// If no path is provided, it returns the default configuration.
+    fn load_config(&self, config_path: &Option<String>) -> Result<Config, error::CliError> {
+        if let Some(path) = config_path {
+            let path = PathBuf::from(path);
+            let path = path
+                .canonicalize()
+                .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {}", e)))?;
+
+            log::info!("Loading configuration from: {}", path.display());
+
+            if !path.exists() {
+                return Err(CliError::Generic(format!(
+                    "Configuration file does not exist: {}",
+                    path.display()
+                )));
+            } else if !path.is_file() {
+                return Err(CliError::Generic(format!(
+                    "Provided path is not a file: {}",
+                    path.display()
+                )));
+            }
+
+            let config_content = std::fs::read_to_string(&path).map_err(CliError::Read)?;
+            return config::toml::Toml::from(config_content.as_str())
+                .parse()
+                .map_err(CliError::Chimney);
+        }
+
+        log::info!("No configuration file provided, using default configuration.");
+        Ok(Config::default())
     }
 
     /// Generate a default Chimney configuration file in the specified target directory.
-    fn generate_default_config(
-        &self,
-        path: PathBuf,
-        format: &FormatType,
-    ) -> Result<(), ChimneyError> {
+    fn generate_default_config(&self, path: PathBuf, format: &FormatType) -> Result<(), CliError> {
         let config = Config::default();
-        let mut path = path.canonicalize().map_err(|e| {
-            ChimneyError::GenericError(format!("Failed to canonicalize path: {}", e))
-        })?;
+        let mut path = path
+            .canonicalize()
+            .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {}", e)))?;
 
         // Create the format instance based on the provided format type
         let format_instance: Box<dyn Format> = format.format("");
