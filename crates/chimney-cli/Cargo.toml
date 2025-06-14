@@ -8,5 +8,6 @@ chimney = { path = "../chimney-core" }
 clap = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-tokio = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
+thiserror = { workspace = true }
