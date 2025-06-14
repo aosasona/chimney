@@ -1,12 +1,12 @@
 use chimney::{
-    Server,
     config::{Config, Format, toml},
     filesystem,
+    server::Server,
 };
 
 macro_rules! test_socket_address {
     ($config:expr) => {
-        let server = mock_server($config);
+        let server = mock_server(&mut $config);
         let addr = server.get_socket_address();
         assert!(
             addr.is_ok(),
@@ -25,7 +25,7 @@ macro_rules! test_socket_address {
         );
     };
     ($config:expr, reserved) => {
-        let server = mock_server($config);
+        let server = mock_server(&mut $config);
         let addr = server.get_socket_address();
         assert!(
             addr.is_err(),
@@ -49,43 +49,39 @@ fn mock_config() -> Config {
     Config::default()
 }
 
-fn mock_server(config: Config) -> Server {
-    Server::new(
-        chimney::config::LogLevel::Trace,
-        filesystem::mock::new(),
-        config,
-    )
+fn mock_server(config: &mut Config) -> Server {
+    Server::new(filesystem::mock::new(), config)
 }
 
 #[test]
 // Test with the mock server configuration
 pub fn test_get_socket_address_with_default_config() {
-    test_socket_address!(mock_config());
+    let mut config = mock_config();
+    test_socket_address!(config);
 }
 
 #[test]
 // Test with a custom configuration
 pub fn test_get_socket_address_with_custom_config() {
-    test_socket_address!(config!(
+    let mut config = config!(
         r#"
         host = "192.168.0.1"
         port = 8080
         sites_directory = "./sites"
         "#
-    ));
+    );
+    test_socket_address!(config);
 }
 
 #[test]
 // Test with a configuration that has a reserved port
 pub fn test_get_socket_address_with_invalid_config() {
-    test_socket_address!(
-        config!(
-            r#"
+    let mut config = config!(
+        r#"
             host = "0.0.0.0"
             port = 80
             sites_directory = "./sites"
             "#
-        ),
-        reserved
     );
+    test_socket_address!(config, reserved);
 }
