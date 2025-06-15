@@ -99,24 +99,21 @@ impl<'a> Server<'a> {
                 }
 
                 connection = server.accept() => {
-                    todo!()
+                    self.accept_connection(connection).await?;
                 }
             }
         }
-
-        // TODO: remove
-        unimplemented!("Implement server logic here");
     }
 
     async fn accept_connection(
         &self,
         connection: Result<(TcpStream, SocketAddr), std::io::Error>,
     ) -> Result<(), ServerError> {
-        todo!()
+        unimplemented!("Accepting connections is not implemented yet");
     }
 
     async fn handle_tcp_stream(&self, stream: TcpStream) -> Result<(), ServerError> {
-        todo!()
+        unimplemented!("Handling TCP stream is not implemented yet");
     }
 
     /// Create the default TCP listener
