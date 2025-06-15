@@ -1,3 +1,4 @@
+use std::io::Error as StdError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -22,4 +23,10 @@ pub enum ServerError {
 
     #[error("Invalid port range: {port}, must be between 1024 and 65535")]
     InvalidPortRange { port: u16 },
+
+    #[error("Failed to bind to the specified address, reason: {0:?}")]
+    FailedToBind(StdError),
+
+    #[error("Failed to accept connection, reason: {0:?}")]
+    FailedToAcceptConnection(StdError),
 }

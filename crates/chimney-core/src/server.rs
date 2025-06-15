@@ -1,10 +1,13 @@
 #![allow(unused)] // TODO: remove
 use std::{net::SocketAddr, sync::Arc};
 
-use log::debug;
+use log::{debug, info};
 
 use crate::{config::LogLevel, error::ServerError};
-use tokio::sync::Notify;
+use tokio::{
+    net::{TcpListener, TcpStream},
+    sync::Notify,
+};
 
 // TODO: build a domain and sites map to easily lookup sites by domain
 pub struct Server<'a> {
@@ -27,6 +30,7 @@ impl<'a> Server<'a> {
         config: &'a mut crate::config::Config,
     ) -> Self {
         debug!("Creating a new Chimney server instance");
+
         Server {
             filesystem,
             config,
@@ -80,16 +84,46 @@ impl<'a> Server<'a> {
             })
     }
 
-    pub async fn run(&self) -> Result<(), crate::error::ChimneyError> {
-        // TODO: handle signal listening for graceful shutdown if enabled
-
+    pub async fn run(&self) -> Result<(), ServerError> {
         // Here you would implement the logic to start the server
         // For now, we just print the configuration and return Ok
-        debug!(
-            "Running in debug mode with configuration: {:?}",
-            self.config
-        );
+        debug!("Running with configuration: {:?}", self.config);
 
+        let server = self.make_tcp_listener().await?;
+
+        loop {
+            tokio::select! {
+                _ = self.signal.notified() => {
+                    debug!("Shutdown signal received, exiting server loop");
+                    return Ok(());
+                }
+
+                connection = server.accept() => {
+                    todo!()
+                }
+            }
+        }
+
+        // TODO: remove
         unimplemented!("Implement server logic here");
+    }
+
+    async fn accept_connection(
+        &self,
+        connection: Result<(TcpStream, SocketAddr), std::io::Error>,
+    ) -> Result<(), ServerError> {
+        todo!()
+    }
+
+    async fn handle_tcp_stream(&self, stream: TcpStream) -> Result<(), ServerError> {
+        todo!()
+    }
+
+    /// Create the default TCP listener
+    async fn make_tcp_listener(&self) -> Result<TcpListener, ServerError> {
+        let socket_addr = self.get_socket_address()?;
+        TcpListener::bind(socket_addr)
+            .await
+            .map_err(ServerError::FailedToBind)
     }
 }
