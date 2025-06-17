@@ -31,11 +31,8 @@ static MOCK_FILES: &[(&str, &str)] = &[
 ];
 
 /// A mock filesystem implementation for testing purposes.
+#[derive(Debug, Clone, Default)]
 pub struct MockFilesystem;
-
-pub fn new() -> Box<dyn Filesystem> {
-    Box::new(MockFilesystem)
-}
 
 impl Filesystem for MockFilesystem {
     fn read_dir(
