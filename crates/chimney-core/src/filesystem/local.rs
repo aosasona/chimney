@@ -8,11 +8,10 @@ pub struct LocalFS {
 
 impl LocalFS {
     pub fn new(path: PathBuf) -> Result<Self, FilesystemError> {
+        // We will attempy to create the path if it does not exist
         if !path.exists() {
-            return Err(FilesystemError::GenericError(format!(
-                "The specified path does not exist: {}",
-                path.display()
-            )));
+            std::fs::create_dir_all(&path)
+                .map_err(|e| FilesystemError::GenericError(e.to_string()))?;
         }
 
         Ok(Self { path })
