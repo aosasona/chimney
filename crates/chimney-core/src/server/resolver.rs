@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use log::debug;
+use tokio::sync::RwLock;
 
 /// A resolver handles the resolution of paths and resources in the Chimney server.
 pub struct Resolver {
@@ -8,13 +9,13 @@ pub struct Resolver {
     filesystem: Arc<dyn crate::filesystem::Filesystem>,
 
     /// The configuration for the server
-    config: Arc<crate::config::Config>,
+    config: Arc<RwLock<crate::config::Config>>,
 }
 
 impl Resolver {
     pub fn new(
         filesystem: Arc<dyn crate::filesystem::Filesystem>,
-        config: Arc<crate::config::Config>,
+        config: Arc<RwLock<crate::config::Config>>,
     ) -> Self {
         debug!("Creating a new Resolver instance");
         Resolver { filesystem, config }

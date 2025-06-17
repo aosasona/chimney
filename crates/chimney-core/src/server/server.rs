@@ -6,7 +6,7 @@ use log::{debug, info};
 use crate::error::ServerError;
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::Notify,
+    sync::{Notify, RwLock},
 };
 
 // TODO: build a domain and sites map to easily lookup sites by domain
@@ -15,7 +15,7 @@ pub struct Server {
     filesystem: Arc<dyn crate::filesystem::Filesystem>,
 
     /// The configuration for the server
-    config: Arc<crate::config::Config>,
+    config: Arc<RwLock<crate::config::Config>>,
 
     /// The shutdown signal for the server
     signal: Arc<Notify>,
@@ -30,22 +30,19 @@ pub struct Server {
 impl Server {
     pub fn new(
         filesystem: Arc<dyn crate::filesystem::Filesystem>,
-        config: Arc<crate::config::Config>,
+        config: Arc<RwLock<crate::config::Config>>,
     ) -> Self {
         debug!("Creating a new Chimney server instance");
 
+        let resolver = super::resolver::Resolver::new(filesystem.clone(), config.clone());
+
         Server {
-            resolver: super::resolver::Resolver::new(filesystem.clone(), config.clone()),
             filesystem,
             config,
             signal: Arc::new(Notify::new()),
             graceful_shutdown: true,
+            resolver,
         }
-    }
-
-    /// Get the current configuration of the server.
-    pub fn config(&self) -> Arc<crate::config::Config> {
-        Arc::clone(&self.config)
     }
 
     pub fn set_graceful_shutdown(&mut self, graceful: bool) {
@@ -71,15 +68,14 @@ impl Server {
     }
 
     /// Get the socket address for the server based on the configuration.
-    pub fn get_socket_address(&self) -> Result<SocketAddr, ServerError> {
+    pub async fn get_socket_address(&self) -> Result<SocketAddr, ServerError> {
+        let config = self.config.read().await;
         // Prevent the use of possibly reserved ports
-        if self.config.port <= 1024 {
-            return Err(ServerError::InvalidPortRange {
-                port: self.config.port,
-            });
+        if config.port <= 1024 {
+            return Err(ServerError::InvalidPortRange { port: config.port });
         }
 
-        let raw_addr = format!("{}:{}", self.config.host, self.config.port);
+        let raw_addr = format!("{}:{}", config.host, config.port);
         raw_addr
             .parse::<SocketAddr>()
             .map_err(|e| ServerError::InvalidRawSocketAddress {
@@ -129,13 +125,13 @@ impl Server {
         unimplemented!("Handling TCP stream is not implemented yet");
     }
 
-    async fn handle_tcp_stream(&self, stream: TokioIo<TcpStream>) -> Result<(), ServerError> {
+    async fn handle_tcp_stream(&self, _stream: TokioIo<TcpStream>) -> Result<(), ServerError> {
         unimplemented!("Handling TCP stream is not implemented yet");
     }
 
     /// Create the default TCP listener
     async fn make_tcp_listener(&self) -> Result<TcpListener, ServerError> {
-        let socket_addr = self.get_socket_address()?;
+        let socket_addr = self.get_socket_address().await?;
         TcpListener::bind(socket_addr)
             .await
             .map_err(ServerError::FailedToBind)

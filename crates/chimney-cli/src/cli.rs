@@ -6,6 +6,7 @@ use chimney::{
     server::Server,
 };
 use clap::{Parser, Subcommand};
+use tokio::sync::RwLock;
 
 use crate::{
     error::{self, CliError},
@@ -106,12 +107,10 @@ impl Cli {
 
     /// Run the Chimney server with the provided configuration.
     async fn run_server(&self, config: Config) -> Result<(), error::CliError> {
-        let fs = Arc::new(
-            filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
-                .map_err(CliError::Filesystem)?,
-        );
-        let arc_config = Arc::new(config);
-        let server = Server::new(fs, arc_config);
+        let fs = filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
+            .map_err(CliError::Filesystem)?;
+
+        let server = Server::new(Arc::new(fs), Arc::new(RwLock::new(config)));
 
         // Start the server
         server
