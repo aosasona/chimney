@@ -1,8 +1,9 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use chimney::{
     config::{self, Config, Format, LogLevel},
-    filesystem, server,
+    filesystem,
+    server::Server,
 };
 use clap::{Parser, Subcommand};
 
@@ -91,9 +92,9 @@ impl Cli {
 
         match &self.command {
             Commands::Serve { config_path } => {
-                let mut config = self.load_config(config_path)?;
+                let config = self.load_config(config_path)?;
                 log::info!("Parsed configuration: {:?}", config);
-                self.run_server(&mut config).await
+                self.run_server(config).await
             }
             Commands::Init { path, format } => self.generate_default_config(path.clone(), format),
             Commands::Version => {
@@ -104,11 +105,13 @@ impl Cli {
     }
 
     /// Run the Chimney server with the provided configuration.
-    async fn run_server(&self, config: &mut Config) -> Result<(), error::CliError> {
-        let fs = filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
-            .map_err(CliError::Filesystem)?;
-        let boxed_fs: Box<dyn filesystem::Filesystem> = Box::new(fs);
-        let server = server::Server::new(boxed_fs, config);
+    async fn run_server(&self, config: Config) -> Result<(), error::CliError> {
+        let fs = Arc::new(
+            filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
+                .map_err(CliError::Filesystem)?,
+        );
+        let arc_config = Arc::new(config);
+        let server = Server::new(fs, arc_config);
 
         // Start the server
         server

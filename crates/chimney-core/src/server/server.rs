@@ -1,37 +1,41 @@
-#![allow(unused)] // TODO: remove
 use std::{net::SocketAddr, sync::Arc};
 
+use hyper_util::rt::TokioIo;
 use log::{debug, info};
 
-use crate::{config::LogLevel, error::ServerError};
+use crate::error::ServerError;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Notify,
 };
 
 // TODO: build a domain and sites map to easily lookup sites by domain
-pub struct Server<'a> {
+pub struct Server {
     /// The filesystem abstraction used by the server
-    filesystem: Box<dyn crate::filesystem::Filesystem>,
+    filesystem: Arc<dyn crate::filesystem::Filesystem>,
 
     /// The configuration for the server
-    config: &'a mut crate::config::Config,
+    config: Arc<crate::config::Config>,
 
     /// The shutdown signal for the server
     signal: Arc<Notify>,
 
     /// Whether to shut down gracefully (default: true)
     graceful_shutdown: bool,
+
+    /// The resolver for handling path and resource resolution
+    resolver: super::resolver::Resolver,
 }
 
-impl<'a> Server<'a> {
+impl Server {
     pub fn new(
-        filesystem: Box<dyn crate::filesystem::Filesystem>,
-        config: &'a mut crate::config::Config,
+        filesystem: Arc<dyn crate::filesystem::Filesystem>,
+        config: Arc<crate::config::Config>,
     ) -> Self {
         debug!("Creating a new Chimney server instance");
 
         Server {
+            resolver: super::resolver::Resolver::new(filesystem.clone(), config.clone()),
             filesystem,
             config,
             signal: Arc::new(Notify::new()),
@@ -40,8 +44,8 @@ impl<'a> Server<'a> {
     }
 
     /// Get the current configuration of the server.
-    pub fn config(&self) -> &crate::config::Config {
-        self.config
+    pub fn config(&self) -> Arc<crate::config::Config> {
+        Arc::clone(&self.config)
     }
 
     pub fn set_graceful_shutdown(&mut self, graceful: bool) {
@@ -109,10 +113,23 @@ impl<'a> Server<'a> {
         &self,
         connection: Result<(TcpStream, SocketAddr), std::io::Error>,
     ) -> Result<(), ServerError> {
-        unimplemented!("Accepting connections is not implemented yet");
+        let (stream, addr) = connection.map_err(ServerError::FailedToAcceptConnection)?;
+        info!("Accepted connection from {}", addr);
+
+        let _io = TokioIo::new(stream);
+
+        // Handle the TCP stream in a separate task
+        // tokio::spawn(async move {
+        //     if let Err(e) = self.handle_tcp_stream(io).await {
+        //         log::error!("Failed to handle TCP stream: {}", e);
+        //     }
+        // });
+        //
+        // Ok(())
+        unimplemented!("Handling TCP stream is not implemented yet");
     }
 
-    async fn handle_tcp_stream(&self, stream: TcpStream) -> Result<(), ServerError> {
+    async fn handle_tcp_stream(&self, stream: TokioIo<TcpStream>) -> Result<(), ServerError> {
         unimplemented!("Handling TCP stream is not implemented yet");
     }
 
