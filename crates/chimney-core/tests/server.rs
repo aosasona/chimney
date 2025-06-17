@@ -1,13 +1,17 @@
+use std::sync::Arc;
+
 use chimney::{
     config::{Config, Format, toml},
     filesystem,
     server::Server,
 };
+use tokio::sync::RwLock;
 
 macro_rules! test_socket_address {
     ($config:expr) => {
-        let server = mock_server(&mut $config);
-        let addr = server.get_socket_address();
+        let config_clone = $config.clone();
+        let server = mock_server($config);
+        let addr = server.get_socket_address().await;
         assert!(
             addr.is_ok(),
             "Failed to get socket address: {:?}",
@@ -15,7 +19,7 @@ macro_rules! test_socket_address {
         );
 
         let socket_addr = addr.unwrap();
-        let exptected_addr = format!("{}:{}", $config.host, $config.port);
+        let exptected_addr = format!("{}:{}", config_clone.host, config_clone.port);
         assert_eq!(
             socket_addr.to_string(),
             exptected_addr,
@@ -25,8 +29,8 @@ macro_rules! test_socket_address {
         );
     };
     ($config:expr, reserved) => {
-        let server = mock_server(&mut $config);
-        let addr = server.get_socket_address();
+        let server = mock_server($config);
+        let addr = server.get_socket_address().await;
         assert!(
             addr.is_err(),
             "Expected an error for config, but got: {:?}",
@@ -49,21 +53,23 @@ fn mock_config() -> Config {
     Config::default()
 }
 
-fn mock_server(config: &mut Config) -> Server {
-    Server::new(filesystem::mock::new(), config)
+fn mock_server(config: Config) -> Server {
+    let fs = Arc::new(filesystem::mock::MockFilesystem);
+    let config = Arc::new(RwLock::new(config));
+    Server::new(fs, config)
 }
 
-#[test]
+#[tokio::test]
 // Test with the mock server configuration
-pub fn test_get_socket_address_with_default_config() {
-    let mut config = mock_config();
+pub async fn test_get_socket_address_with_default_config() {
+    let config = mock_config();
     test_socket_address!(config);
 }
 
-#[test]
+#[tokio::test]
 // Test with a custom configuration
-pub fn test_get_socket_address_with_custom_config() {
-    let mut config = config!(
+pub async fn test_get_socket_address_with_custom_config() {
+    let config = config!(
         r#"
         host = "192.168.0.1"
         port = 8080
@@ -73,10 +79,10 @@ pub fn test_get_socket_address_with_custom_config() {
     test_socket_address!(config);
 }
 
-#[test]
+#[tokio::test]
 // Test with a configuration that has a reserved port
-pub fn test_get_socket_address_with_invalid_config() {
-    let mut config = config!(
+pub async fn test_get_socket_address_with_invalid_config() {
+    let config = config!(
         r#"
             host = "0.0.0.0"
             port = 80
