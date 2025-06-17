@@ -1,3 +1,5 @@
+// TODO: remove
+#![allow(unused)]
 use std::{net::SocketAddr, sync::Arc};
 
 use hyper_util::rt::TokioIo;
@@ -8,6 +10,8 @@ use tokio::{
     net::{TcpListener, TcpStream},
     sync::{Notify, RwLock},
 };
+
+const SHUTDOWN_WAIT_PERIOD: u64 = 15; // seconds
 
 // TODO: build a domain and sites map to easily lookup sites by domain
 pub struct Server {
@@ -89,18 +93,34 @@ impl Server {
         // For now, we just print the configuration and return Ok
         debug!("Running with configuration: {:?}", self.config);
 
-        let server = self.make_tcp_listener().await?;
+        let listener = self.make_tcp_listener().await?;
+
+        // Graceful shutdown handling for the Hyper server
+        let graceful = hyper_util::server::graceful::GracefulShutdown::new();
 
         loop {
             tokio::select! {
                 _ = self.signal.notified() => {
+                    drop(listener);
                     debug!("Shutdown signal received, exiting server loop");
-                    return Ok(());
+                    break;
                 }
 
-                connection = server.accept() => {
+                connection = listener.accept() => {
                     self.accept_connection(connection).await?;
                 }
+            }
+        }
+
+        // Start graceful shutdown watcher when the main look is broken
+        tokio::select! {
+            _ = graceful.shutdown() => {
+                debug!("Graceful shutdown initiated, exiting server loop");
+                Ok(())
+            }
+            _ = tokio::time::sleep(std::time::Duration::from_secs(SHUTDOWN_WAIT_PERIOD)) => {
+                log::error!("timed out wait for all connections to close");
+                Err(ServerError::TimeoutWaitingForConnections)
             }
         }
     }

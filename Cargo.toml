@@ -28,7 +28,11 @@ chrono = "0.4.41"
 clap = { version = "4.5.39", features = ["derive"] }
 env_logger = { version = "0.11.0" }
 hyper = { version = "1.6.0", features = ["http1", "server"] }
-hyper-util = { version = "0.1.12", features = ["tokio"] }
+hyper-util = { version = "0.1.12", features = [
+	"tokio",
+	"server-auto",
+	"server-graceful",
+] }
 log = { version = "0.4.27" }
 toml = { version = "0.8.22" }
 serde = { version = "1.0.219", features = ["derive"] }

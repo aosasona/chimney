@@ -29,4 +29,7 @@ pub enum ServerError {
 
     #[error("Failed to accept connection, reason: {0:?}")]
     FailedToAcceptConnection(StdError),
+
+    #[error("Timeout waiting for connections to close")]
+    TimeoutWaitingForConnections,
 }
