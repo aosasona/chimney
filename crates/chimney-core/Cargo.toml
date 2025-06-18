@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 env_logger = { workspace = true }
 log = { workspace = true }
+http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 serde = { workspace = true }

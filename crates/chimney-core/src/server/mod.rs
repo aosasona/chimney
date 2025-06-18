@@ -4,6 +4,7 @@ pub mod resolver;
 // TODO: remove
 use std::{net::SocketAddr, sync::Arc};
 
+use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
 use log::{debug, info};
 
@@ -134,20 +135,24 @@ impl Server {
         let (stream, addr) = connection.map_err(ServerError::FailedToAcceptConnection)?;
         info!("Accepted connection from {}", addr);
 
-        let _io = TokioIo::new(stream);
+        let io = TokioIo::new(stream);
+        let resolver = self.resolver.clone();
 
         // Handle the TCP stream in a separate task
-        // tokio::spawn(async move {
-        //     if let Err(e) = self.handle_tcp_stream(io).await {
-        //         log::error!("Failed to handle TCP stream: {}", e);
-        //     }
-        // });
-        //
-        // Ok(())
-        unimplemented!("Handling TCP stream is not implemented yet");
+        tokio::task::spawn(async move {
+            // if let Err(err) = http1::Builder::new().serve_connection(io, resolver).await {
+            //     println!("Failed to serve connection: {:?}", err);
+            // }
+        });
+
+        Ok(())
     }
 
-    async fn handle_tcp_stream(&self, _stream: TokioIo<TcpStream>) -> Result<(), ServerError> {
+    async fn handle_tcp_stream(
+        &self,
+        _addr: SocketAddr,
+        _stream: TokioIo<TcpStream>,
+    ) -> Result<(), ServerError> {
         unimplemented!("Handling TCP stream is not implemented yet");
     }
 
