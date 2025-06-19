@@ -59,7 +59,7 @@ pub enum Commands {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
-    #[arg(short, long, default_value = "info")]
+    #[arg(short, long)]
     /// The log level for the application
     log_level: Option<LogLevel>,
 
@@ -80,7 +80,7 @@ impl Cli {
         let level = self
             .log_level
             .clone()
-            .unwrap_or(LogLevel::Info)
+            .unwrap_or_default()
             .to_log_level_filter();
 
         env_logger::Builder::new().filter_level(level).init();

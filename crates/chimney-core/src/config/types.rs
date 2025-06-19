@@ -11,16 +11,25 @@ use crate::error::ChimneyError;
 use super::Format;
 
 /// Represents the available log levels
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Off = 0,
     Error = 1,
     Warn = 2,
-    #[default]
     Info = 3,
     Debug = 4,
     Trace = 5,
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        if cfg!(debug_assertions) {
+            LogLevel::Trace
+        } else {
+            LogLevel::Info
+        }
+    }
 }
 
 impl LogLevel {
@@ -102,7 +111,7 @@ impl Default for Config {
             host: Config::default_host(),
             port: Config::default_port(),
             sites_directory: Config::default_sites_dir(),
-            log_level: Some(LogLevel::Info),
+            log_level: Some(LogLevel::default()),
             sites: Vec::new(),
         }
     }
