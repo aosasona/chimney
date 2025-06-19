@@ -162,7 +162,7 @@ impl Cli {
             .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {}", e)))?;
 
         // Create the format instance based on the provided format type
-        let format_instance: Box<dyn Format> = format.format("");
+        let format_instance: Box<dyn Format> = format.format(None);
 
         // Validate the target path
         if path.is_dir() {

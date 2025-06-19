@@ -95,6 +95,7 @@ impl Server {
             })
     }
 
+    /// Run the main server loop to accept and handle incoming connections.
     pub async fn run(&self) -> Result<(), ServerError> {
         debug!("Starting Chimney server...");
 
@@ -113,7 +114,7 @@ impl Server {
                 }
 
                 connection = listener.accept() => {
-                    self.accept_connection(connection).await?;
+                    self.handle_connection(connection).await?;
                 }
             }
         }
@@ -131,7 +132,7 @@ impl Server {
         }
     }
 
-    async fn accept_connection(
+    async fn handle_connection(
         &self,
         connection: Result<(TcpStream, SocketAddr), std::io::Error>,
     ) -> Result<(), ServerError> {
@@ -149,14 +150,6 @@ impl Server {
         });
 
         Ok(())
-    }
-
-    async fn handle_tcp_stream(
-        &self,
-        _addr: SocketAddr,
-        _stream: TokioIo<TcpStream>,
-    ) -> Result<(), ServerError> {
-        unimplemented!("Handling TCP stream is not implemented yet");
     }
 
     /// Create the default TCP listener
