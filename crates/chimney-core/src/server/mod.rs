@@ -6,7 +6,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
-use log::{debug, info};
+use log::{debug, error, info};
 
 use crate::error::ServerError;
 use tokio::{
@@ -53,6 +53,7 @@ impl Server {
     }
 
     pub fn set_graceful_shutdown(&mut self, graceful: bool) {
+        debug!("Setting graceful shutdown to {}", graceful);
         self.graceful_shutdown = graceful;
     }
 
@@ -62,6 +63,8 @@ impl Server {
             debug!("Graceful shutdown is disabled, skipping signal watcher");
             return;
         }
+
+        debug!("Setting up Ctrl+C signal handler for graceful shutdown");
 
         let signal = Arc::clone(&self.signal);
         tokio::spawn(async move {
@@ -83,6 +86,7 @@ impl Server {
         }
 
         let raw_addr = format!("{}:{}", config.host, config.port);
+        debug!("Parsing socket address: {}", raw_addr);
         raw_addr
             .parse::<SocketAddr>()
             .map_err(|e| ServerError::InvalidRawSocketAddress {
@@ -92,10 +96,9 @@ impl Server {
     }
 
     pub async fn run(&self) -> Result<(), ServerError> {
-        // Here you would implement the logic to start the server
-        // For now, we just print the configuration and return Ok
-        debug!("Running with configuration: {:?}", self.config);
+        debug!("Starting Chimney server...");
 
+        self.watch_for_shutdown().await;
         let listener = self.make_tcp_listener().await?;
 
         // Graceful shutdown handling for the Hyper server
@@ -118,11 +121,11 @@ impl Server {
         // Start graceful shutdown watcher when the main look is broken
         tokio::select! {
             _ = graceful.shutdown() => {
-                debug!("Graceful shutdown initiated, exiting server loop");
+                debug!("Closed all connections gracefully");
                 Ok(())
             }
             _ = tokio::time::sleep(std::time::Duration::from_secs(SHUTDOWN_WAIT_PERIOD)) => {
-                log::error!("timed out wait for all connections to close");
+                error!("Timed out wait for all connections to close");
                 Err(ServerError::TimeoutWaitingForConnections)
             }
         }
