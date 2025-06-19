@@ -156,7 +156,7 @@ impl AbstractFile {
     }
 }
 
-pub trait Filesystem {
+pub trait Filesystem: Send + Sync {
     /// Get the list of files in a directory.
     fn read_dir(&self, path: PathBuf) -> Result<Vec<AbstractFile>, FilesystemError>;
 

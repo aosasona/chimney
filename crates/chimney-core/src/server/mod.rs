@@ -140,9 +140,9 @@ impl Server {
 
         // Handle the TCP stream in a separate task
         tokio::task::spawn(async move {
-            // if let Err(err) = http1::Builder::new().serve_connection(io, resolver).await {
-            //     println!("Failed to serve connection: {:?}", err);
-            // }
+            if let Err(err) = http1::Builder::new().serve_connection(io, resolver).await {
+                println!("Failed to serve connection: {:?}", err);
+            }
         });
 
         Ok(())
