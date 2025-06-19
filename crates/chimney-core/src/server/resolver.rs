@@ -1,5 +1,6 @@
 use http_body_util::Full;
 use hyper::body::Bytes;
+use hyper::header::HeaderValue;
 use hyper::service::Service;
 use hyper::{Request, Response, body::Incoming as IncomingBody};
 use log::debug;
@@ -33,6 +34,14 @@ impl Service<Request<IncomingBody>> for Resolver {
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn call(&self, req: Request<IncomingBody>) -> Self::Future {
+        debug!(
+            "User-Agent: {}",
+            req.headers()
+                .get("User-Agent")
+                .unwrap_or(&HeaderValue::from_static("Unknown"))
+                .to_str()
+                .unwrap_or("Unknown")
+        );
         todo!()
     }
 }
