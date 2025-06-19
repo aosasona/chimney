@@ -1,5 +1,5 @@
 #![allow(unused)]
-pub mod resolver;
+pub mod service;
 
 // TODO: remove
 use std::{net::SocketAddr, sync::Arc};
@@ -30,8 +30,8 @@ pub struct Server {
     /// Whether to shut down gracefully (default: true)
     graceful_shutdown: bool,
 
-    /// The resolver for handling path and resource resolution
-    resolver: resolver::Resolver,
+    /// The service for handling requests
+    service: service::Service,
 }
 
 impl Server {
@@ -41,14 +41,14 @@ impl Server {
     ) -> Self {
         debug!("Creating a new Chimney server instance");
 
-        let resolver = resolver::Resolver::new(filesystem.clone(), config.clone());
+        let service = service::Service::new(filesystem.clone(), config.clone());
 
         Server {
             filesystem,
             config,
             signal: Arc::new(Notify::new()),
             graceful_shutdown: true,
-            resolver,
+            service,
         }
     }
 
@@ -140,11 +140,11 @@ impl Server {
         info!("Accepted connection from {}", addr);
 
         let io = TokioIo::new(stream);
-        let resolver = self.resolver.clone();
+        let service = self.service.clone();
 
         // Handle the TCP stream in a separate task
         tokio::task::spawn(async move {
-            if let Err(err) = http1::Builder::new().serve_connection(io, resolver).await {
+            if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
                 println!("Failed to serve connection: {:?}", err);
             }
         });
