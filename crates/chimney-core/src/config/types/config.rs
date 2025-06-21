@@ -8,6 +8,49 @@ use crate::{config::Format, error::ChimneyError};
 
 use super::{LogLevel, Site};
 
+/// Represents the host detection options
+/// This is used to determine how the target host i.e. domain or IP address is detected from the
+/// request headers
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub enum HostDetection {
+    /// Automatically detect the host from the request headers
+    ///
+    /// The result is obtained on the first request and cached for subsequent requests until there
+    /// is a need to re-detect it. This will happen if:
+    /// - The user-facing proxy changes the header being used or similar
+    /// - The server is restarted
+    #[default]
+    Auto,
+
+    /// A list of headers to check for the host in, in order of precedence
+    Headers(Vec<String>),
+}
+
+impl HostDetection {
+    /// Returns the default headers to check for the host in (in order of precedence)
+    pub fn default_headers() -> Vec<String> {
+        vec![
+            "X-Forwarded-Host".to_string(),
+            "Host".to_string(),
+            "X-Forwarded-For".to_string(),
+            "X-Real-Host".to_string(),
+            "X-Forwarded-Server".to_string(),
+        ]
+    }
+
+    /// Returns the headers to check for the host in, based on the current configuration
+    pub fn target_headers(&self) -> Vec<String> {
+        match self {
+            HostDetection::Auto => Self::default_headers(),
+            HostDetection::Headers(headers) => headers.clone(),
+        }
+    }
+
+    /// Checks if the host detection strategy is set to auto-detect
+    pub fn is_auto(&self) -> bool {
+        matches!(self, HostDetection::Auto)
+    }
+}
 /// The core configuration options available
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
@@ -18,6 +61,10 @@ pub struct Config {
     /// The port number to bind the server to (default: 8080)
     #[serde(default = "Config::default_port")]
     pub port: u16,
+
+    /// The host detection options to use (default: "auto")
+    #[serde(default)]
+    pub host_detection: HostDetection,
 
     /// The directories to look for sites in (default: "<current directory>/sites")
     #[serde(default = "Config::default_sites_dir")]
@@ -37,6 +84,7 @@ impl Default for Config {
         Config {
             host: Config::default_host(),
             port: Config::default_port(),
+            host_detection: HostDetection::default(),
             sites_directory: Config::default_sites_dir(),
             log_level: Some(LogLevel::default()),
             sites: Vec::new(),
