@@ -32,4 +32,15 @@ pub enum ServerError {
 
     #[error("Timeout waiting for connections to close")]
     TimeoutWaitingForConnections,
+
+    #[error("No host detection method with valid target headers specified")]
+    HostDetectionUnspecified,
+
+    #[error("Failed to detect target host: {message}")]
+    HostDetectionFailed { message: String },
+
+    #[error(
+        "No host header has been cached, cannot resolve host. This should not happen and is most likely a bug."
+    )]
+    MissingResolvedHostHeader,
 }
