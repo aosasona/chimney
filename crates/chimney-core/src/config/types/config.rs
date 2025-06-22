@@ -12,7 +12,7 @@ use super::{LogLevel, Site};
 /// This is used to determine how the target host i.e. domain or IP address is detected from the
 /// request headers
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub enum HostDetection {
+pub enum HostDetectionStrategy {
     /// Automatically detect the host from the request headers
     ///
     /// The result is obtained on the first request and cached for subsequent requests until there
@@ -26,12 +26,12 @@ pub enum HostDetection {
     Headers(Vec<String>),
 }
 
-impl HostDetection {
+impl HostDetectionStrategy {
     /// Returns the default headers to check for the host in (in order of precedence)
     pub fn default_headers() -> Vec<String> {
         vec![
-            "X-Forwarded-Host".to_string(),
             "Host".to_string(),
+            "X-Forwarded-Host".to_string(),
             "X-Forwarded-For".to_string(),
             "X-Real-Host".to_string(),
             "X-Forwarded-Server".to_string(),
@@ -41,14 +41,14 @@ impl HostDetection {
     /// Returns the headers to check for the host in, based on the current configuration
     pub fn target_headers(&self) -> Vec<String> {
         match self {
-            HostDetection::Auto => Self::default_headers(),
-            HostDetection::Headers(headers) => headers.clone(),
+            HostDetectionStrategy::Auto => Self::default_headers(),
+            HostDetectionStrategy::Headers(headers) => headers.clone(),
         }
     }
 
     /// Checks if the host detection strategy is set to auto-detect
     pub fn is_auto(&self) -> bool {
-        matches!(self, HostDetection::Auto)
+        matches!(self, HostDetectionStrategy::Auto)
     }
 }
 /// The core configuration options available
@@ -64,7 +64,7 @@ pub struct Config {
 
     /// The host detection options to use (default: "auto")
     #[serde(default)]
-    pub host_detection: HostDetection,
+    pub host_detection: HostDetectionStrategy,
 
     /// The directories to look for sites in (default: "<current directory>/sites")
     #[serde(default = "Config::default_sites_dir")]
@@ -77,6 +77,11 @@ pub struct Config {
     /// The various site configurations
     #[serde(skip_deserializing, skip_serializing_if = "Vec::is_empty")]
     pub sites: Vec<(String, Site)>,
+
+    /// The actual headers to check for the host in when a request comes in
+    /// This serves as a cache for automatic detection
+    #[serde(skip_serializing, skip_deserializing)]
+    resolved_host_header: Option<String>,
 }
 
 impl Default for Config {
@@ -84,10 +89,11 @@ impl Default for Config {
         Config {
             host: Config::default_host(),
             port: Config::default_port(),
-            host_detection: HostDetection::default(),
+            host_detection: HostDetectionStrategy::default(),
             sites_directory: Config::default_sites_dir(),
             log_level: Some(LogLevel::default()),
             sites: Vec::new(),
+            resolved_host_header: None,
         }
     }
 }
@@ -179,5 +185,27 @@ impl Config {
         std::fs::write(path, config_str).map_err(ChimneyError::IOError)?;
 
         Ok(())
+    }
+}
+
+// TODO: implement target detection logic for config stuff
+impl Config {
+    /// Checks if we already have cached target headers
+    pub fn has_resolved_host_header(&self) -> bool {
+        self.resolved_host_header.is_some()
+    }
+
+    /// Gets the cached target header if it exists
+    pub fn resolved_host_header(&self) -> Option<String> {
+        self.resolved_host_header.clone()
+    }
+
+    /// Sets the cached target header
+    pub fn set_resolved_host_header(&mut self, header: String) {
+        if header.is_empty() {
+            return;
+        }
+
+        self.resolved_host_header = Some(header);
     }
 }
