@@ -26,7 +26,7 @@ impl Toml<'_> {
             let site = Site::from_table(name, table_value.clone())?;
 
             // If the site was parsed successfully, add it to the config
-            config.sites.add_site(site)?
+            config.sites.add(site)?
         }
 
         Ok(())

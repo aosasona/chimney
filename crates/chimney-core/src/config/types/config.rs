@@ -6,7 +6,7 @@ use std::{
 
 use crate::{config::Format, error::ChimneyError};
 
-use super::{LogLevel, Site, Sites};
+use super::{LogLevel, Sites};
 
 /// Represents the host detection options
 /// This is used to determine how the target host i.e. domain or IP address is detected from the

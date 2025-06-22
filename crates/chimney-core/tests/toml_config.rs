@@ -102,7 +102,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
 
     let site = config
         .sites
-        .get_site("example")
+        .get("example")
         .expect("Site 'example' not found");
 
     assert_eq!(site.name, "example");

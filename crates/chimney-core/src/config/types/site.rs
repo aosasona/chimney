@@ -171,7 +171,7 @@ impl Sites {
     }
 
     /// Gets the site configuration by name
-    pub fn get_site(&self, name: &str) -> Option<&Site> {
+    pub fn get(&self, name: &str) -> Option<&Site> {
         self.inner.iter().find_map(
             |(site_name, site)| {
                 if site_name == name { Some(site) } else { None }
@@ -180,9 +180,9 @@ impl Sites {
     }
 
     /// Adds a site configuration to the config
-    pub fn add_site(&mut self, site: Site) -> Result<(), ChimneyError> {
+    pub fn add(&mut self, site: Site) -> Result<(), ChimneyError> {
         // TODO: pre-compile index here
-        if self.get_site(&site.name).is_some() {
+        if self.get(&site.name).is_some() {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{}", site.name),
                 message: "Site with this name already exists".to_string(),
@@ -193,9 +193,9 @@ impl Sites {
     }
 
     /// Updates an existing site configuration in the config
-    pub fn update_site(&mut self, site: Site) -> Result<(), ChimneyError> {
+    pub fn update(&mut self, site: Site) -> Result<(), ChimneyError> {
         // TODO: update index here
-        if self.get_site(&site.name).is_none() {
+        if self.get(&site.name).is_none() {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{}", site.name),
                 message: "Site with this name does not exist".to_string(),
@@ -207,7 +207,7 @@ impl Sites {
     }
 
     /// Removes a site configuration from the config
-    pub fn remove_site(&mut self, name: &str) -> Result<(), ChimneyError> {
+    pub fn remove(&mut self, name: &str) -> Result<(), ChimneyError> {
         // TODO: update index here too
         if self.inner.remove(name).is_some() {
             return Ok(());
