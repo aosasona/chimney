@@ -1,4 +1,4 @@
-use chimney::config::{Format, LogLevel, Site, toml::Toml};
+use chimney::config::{Format, HostDetectionStrategy, LogLevel, Site, toml::Toml};
 
 #[test]
 pub fn parse_root_config() {
@@ -148,4 +148,45 @@ pub fn parse_standalone_site_config_with_manual_https() {
     assert_eq!(https_config.cert_file, Some("tls/cert.pem".to_string()));
     assert_eq!(https_config.key_file, Some("tls/key.pem".to_string()));
     assert!(https_config.ca_file.is_none(), "CA file should not be set");
+}
+
+#[test]
+pub fn parse_config_with_auto_host_detection() {
+    let input = r#"
+    host_detection = "auto"
+    "#;
+
+    let toml_parser = Toml::new(input);
+    let config = toml_parser
+        .parse()
+        .expect("Failed to parse TOML config with embedded site");
+
+    assert!(
+        config.host_detection.is_auto(),
+        "Expected auto host detection"
+    );
+    assert_eq!(config.host_detection, HostDetectionStrategy::Auto);
+}
+
+#[test]
+pub fn parse_config_with_manual_host_detection() {
+    let input = r#"
+    host_detection = { strategy = "manual", target_headers = ["Host", "X-Forwarded-Host"] }
+    "#;
+
+    let toml_parser = Toml::new(input);
+    let config = toml_parser
+        .parse()
+        .expect("Failed to parse TOML config with manual host detection");
+
+    assert!(
+        !config.host_detection.is_auto(),
+        "Expected manual host detection"
+    );
+    assert_eq!(
+        config.host_detection,
+        HostDetectionStrategy::Manual {
+            target_headers: vec!["Host".to_string(), "X-Forwarded-Host".to_string()]
+        }
+    );
 }
