@@ -101,6 +101,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
     assert_eq!(config.sites.len(), 1, "Expected one site in the config");
 
     let site = config
+        .sites
         .get_site("example")
         .expect("Site 'example' not found");
 
