@@ -11,7 +11,8 @@ use super::{LogLevel, Sites};
 /// Represents the host detection options
 /// This is used to determine how the target host i.e. domain or IP address is detected from the
 /// request headers
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum HostDetectionStrategy {
     /// Automatically detect the host from the request headers
     ///
@@ -23,7 +24,8 @@ pub enum HostDetectionStrategy {
     Auto,
 
     /// A list of headers to check for the host in, in order of precedence
-    Headers(Vec<String>),
+    #[serde(untagged)]
+    Manual { target_headers: Vec<String> },
 }
 
 impl HostDetectionStrategy {
@@ -42,7 +44,7 @@ impl HostDetectionStrategy {
     pub fn target_headers(&self) -> Vec<String> {
         match self {
             HostDetectionStrategy::Auto => Self::default_headers(),
-            HostDetectionStrategy::Headers(headers) => headers.clone(),
+            HostDetectionStrategy::Manual { target_headers } => target_headers.clone(),
         }
     }
 
