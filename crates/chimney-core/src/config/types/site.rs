@@ -1,3 +1,8 @@
+// TODO: precompile domain -> site mapping to speed up lookups
+// TODO: add specialized Domain type to hold the hostname and port
+
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use toml::Table;
 
@@ -129,5 +134,109 @@ impl Site {
         }
 
         Ok(site)
+    }
+}
+
+#[derive(Default, Debug, Deserialize, Serialize, Clone)]
+pub struct Sites {
+    /// The list of sites in the configuration
+    inner: HashMap<String, Site>,
+}
+
+impl<'a> IntoIterator for &'a Sites {
+    type Item = (&'a String, &'a Site);
+    type IntoIter = std::collections::hash_map::Iter<'a, String, Site>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.iter()
+    }
+}
+
+impl Sites {
+    /// Constructs a `Sites` from a vector of site configurations
+    pub fn from_vec(sites: Vec<(String, Site)>) -> Self {
+        Self {
+            inner: sites.into_iter().collect::<HashMap<_, _>>(),
+        }
+    }
+
+    /// Checks if there are no sites in the configuration
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Returns the number of sites in the configuration
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Gets the site configuration by name
+    pub fn get_site(&self, name: &str) -> Option<&Site> {
+        self.inner.iter().find_map(
+            |(site_name, site)| {
+                if site_name == name { Some(site) } else { None }
+            },
+        )
+    }
+
+    /// Adds a site configuration to the config
+    pub fn add_site(&mut self, site: Site) -> Result<(), ChimneyError> {
+        // TODO: pre-compile index here
+        if self.get_site(&site.name).is_some() {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{}", site.name),
+                message: "Site with this name already exists".to_string(),
+            });
+        }
+        self.inner.insert(site.name.clone(), site);
+        Ok(())
+    }
+
+    /// Updates an existing site configuration in the config
+    pub fn update_site(&mut self, site: Site) -> Result<(), ChimneyError> {
+        // TODO: update index here
+        if self.get_site(&site.name).is_none() {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{}", site.name),
+                message: "Site with this name does not exist".to_string(),
+            });
+        }
+
+        self.inner.insert(site.name.clone(), site);
+        Ok(())
+    }
+
+    /// Removes a site configuration from the config
+    pub fn remove_site(&mut self, name: &str) -> Result<(), ChimneyError> {
+        // TODO: update index here too
+        if self.inner.remove(name).is_some() {
+            return Ok(());
+        }
+
+        Err(ChimneyError::ConfigError {
+            field: format!("sites.{}", name),
+            message: "Site with this name does not exist".to_string(),
+        })
+    }
+
+    /// Returns an iterator over the site configurations
+    pub fn values(&self) -> impl Iterator<Item = &Site> {
+        self.inner.values()
+    }
+
+    /// Finds a site configuration by its domain/host name
+    pub fn find_by_hostname(&self, domain: &str) -> Option<&Site> {
+        // TODO: use precompiled reference map
+        self.inner.iter().find_map(|(_, site)| {
+            if site
+                .domain_names
+                .iter()
+                .any(|d| d.eq_ignore_ascii_case(domain))
+            {
+                Some(site)
+            } else {
+                None
+            }
+        })
     }
 }

@@ -6,7 +6,7 @@ use std::{
 
 use crate::{config::Format, error::ChimneyError};
 
-use super::{LogLevel, Site};
+use super::{LogLevel, Site, Sites};
 
 /// Represents the host detection options
 /// This is used to determine how the target host i.e. domain or IP address is detected from the
@@ -75,8 +75,8 @@ pub struct Config {
     pub log_level: Option<LogLevel>,
 
     /// The various site configurations
-    #[serde(skip_deserializing, skip_serializing_if = "Vec::is_empty")]
-    pub sites: Vec<(String, Site)>,
+    #[serde(skip_deserializing, skip_serializing_if = "Sites::is_empty")]
+    pub sites: Sites,
 
     /// The actual headers to check for the host in when a request comes in
     /// This serves as a cache for automatic detection
@@ -92,12 +92,13 @@ impl Default for Config {
             host_detection: HostDetectionStrategy::default(),
             sites_directory: Config::default_sites_dir(),
             log_level: Some(LogLevel::default()),
-            sites: Vec::new(),
+            sites: Sites::default(),
             resolved_host_header: None,
         }
     }
 }
 
+// Default implementations for Config
 impl Config {
     pub fn default_host() -> IpAddr {
         IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
@@ -116,62 +117,8 @@ impl Config {
     }
 }
 
+// IO implementations
 impl Config {
-    /// Gets the site configuration by name
-    pub fn get_site(&self, name: &str) -> Option<&Site> {
-        self.sites.iter().find_map(
-            |(site_name, site)| {
-                if site_name == name { Some(site) } else { None }
-            },
-        )
-    }
-
-    /// Adds a site configuration to the config
-    pub fn add_site(&mut self, site: Site) -> Result<(), ChimneyError> {
-        if self.get_site(&site.name).is_some() {
-            return Err(ChimneyError::ConfigError {
-                field: format!("sites.{}", site.name),
-                message: "Site with this name already exists".to_string(),
-            });
-        }
-        self.sites.push((site.name.clone(), site));
-        Ok(())
-    }
-
-    /// Updates an existing site configuration in the config
-    pub fn update_site(&mut self, site: Site) -> Result<(), ChimneyError> {
-        if let Some(pos) = self
-            .sites
-            .iter()
-            .position(|(site_name, _)| site_name == &site.name)
-        {
-            self.sites[pos] = (site.name.clone(), site);
-            Ok(())
-        } else {
-            Err(ChimneyError::ConfigError {
-                field: format!("sites.{}", site.name),
-                message: "Site with this name does not exist".to_string(),
-            })
-        }
-    }
-
-    /// Removes a site configuration from the config
-    pub fn remove_site(&mut self, name: &str) -> Result<(), ChimneyError> {
-        if let Some(pos) = self
-            .sites
-            .iter()
-            .position(|(site_name, _)| site_name == name)
-        {
-            self.sites.remove(pos);
-            Ok(())
-        } else {
-            Err(ChimneyError::ConfigError {
-                field: format!("sites.{}", name),
-                message: "Site with this name does not exist".to_string(),
-            })
-        }
-    }
-
     /// Writes the configuration to a file in the specified format
     pub fn write_to_file<P: AsRef<Path>>(
         &self,
@@ -188,7 +135,7 @@ impl Config {
     }
 }
 
-// TODO: implement target detection logic for config stuff
+// Host header resolution implementations
 impl Config {
     /// Checks if we already have cached target headers
     pub fn has_resolved_host_header(&self) -> bool {
