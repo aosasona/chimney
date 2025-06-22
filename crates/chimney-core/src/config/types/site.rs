@@ -1,12 +1,12 @@
-// TODO: precompile domain -> site mapping to speed up lookups
-// TODO: add specialized Domain type to hold the hostname and port
-
 use std::collections::HashMap;
 
+use log::debug;
 use serde::{Deserialize, Serialize};
 use toml::Table;
 
 use crate::error::ChimneyError;
+
+use super::{Domain, DomainIndex};
 
 /// Represents the HTTPS configuration options
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -141,6 +141,10 @@ impl Site {
 pub struct Sites {
     /// The list of sites in the configuration
     inner: HashMap<String, Site>,
+
+    /// A precompiled index of domain names to site names for fast lookups
+    #[serde(skip_serializing, skip_deserializing)]
+    domain_index: DomainIndex,
 }
 
 impl<'a> IntoIterator for &'a Sites {
@@ -157,6 +161,7 @@ impl Sites {
     pub fn from_vec(sites: Vec<(String, Site)>) -> Self {
         Self {
             inner: sites.into_iter().collect::<HashMap<_, _>>(),
+            domain_index: DomainIndex::default(),
         }
     }
 
@@ -181,20 +186,22 @@ impl Sites {
 
     /// Adds a site configuration to the config
     pub fn add(&mut self, site: Site) -> Result<(), ChimneyError> {
-        // TODO: pre-compile index here
         if self.get(&site.name).is_some() {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{}", site.name),
                 message: "Site with this name already exists".to_string(),
             });
         }
+
+        let site_clone = site.clone();
         self.inner.insert(site.name.clone(), site);
+        self.rebuild_site_index(&site_clone)?;
+
         Ok(())
     }
 
     /// Updates an existing site configuration in the config
     pub fn update(&mut self, site: Site) -> Result<(), ChimneyError> {
-        // TODO: update index here
         if self.get(&site.name).is_none() {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{}", site.name),
@@ -202,14 +209,17 @@ impl Sites {
             });
         }
 
+        let site_clone = site.clone();
         self.inner.insert(site.name.clone(), site);
+        self.rebuild_site_index(&site_clone)?;
+
         Ok(())
     }
 
     /// Removes a site configuration from the config
     pub fn remove(&mut self, name: &str) -> Result<(), ChimneyError> {
-        // TODO: update index here too
         if self.inner.remove(name).is_some() {
+            self.domain_index.clear_for_site(name);
             return Ok(());
         }
 
@@ -226,17 +236,46 @@ impl Sites {
 
     /// Finds a site configuration by its domain/host name
     pub fn find_by_hostname(&self, domain: &str) -> Option<&Site> {
-        // TODO: use precompiled reference map
-        self.inner.iter().find_map(|(_, site)| {
-            if site
-                .domain_names
-                .iter()
-                .any(|d| d.eq_ignore_ascii_case(domain))
-            {
-                Some(site)
-            } else {
-                None
-            }
-        })
+        let domain: Domain = Domain::try_from(domain.to_string())
+            .map_err(|e| ChimneyError::DomainParseError(e.to_string()))
+            .ok()?;
+
+        let site_name = self.domain_index.get(&domain);
+        match site_name {
+            Some(name) => self.inner.get(name),
+            None => None,
+        }
+    }
+
+    /// Rebuilds the domain index for a particular site
+    /// All existing domains for that site would be removed and then re-added with the provided
+    /// site as the source of truth
+    fn rebuild_site_index(&mut self, site: &Site) -> Result<(), ChimneyError> {
+        debug!("Rebuilding index for site with empty name, skipping");
+
+        // We don't allow empty site names since we need it in the index
+        if site.name.is_empty() {
+            debug!("Site name is empty, skipping index rebuild");
+            return Err(ChimneyError::ConfigError {
+                field: "sites".to_string(),
+                message: "Site name cannot be empty".to_string(),
+            });
+        }
+
+        // To get rid of domains that might have been removed, changed or renamed, we clear the index
+        debug!("Clearing domain index for site: {}", site.name);
+        self.domain_index.clear_for_site(&site.name);
+
+        // Now we can re-add all domains for this site
+        for domain in &site.domain_names {
+            debug!("Adding domain '{}' for site '{}'", domain, site.name);
+
+            let domain = Domain::try_from(domain.clone())
+                .map_err(|e| ChimneyError::DomainParseError(e.to_string()))?;
+            self.domain_index.insert(domain, site.name.clone())?;
+        }
+
+        debug!("Rebuilt index for site: {}", site.name);
+        Ok(())
     }
 }

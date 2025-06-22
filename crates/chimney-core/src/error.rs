@@ -14,6 +14,12 @@ pub enum ChimneyError {
 
     #[error("{0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("Failed to parse Domain type: {0}")]
+    DomainParseError(String),
+
+    #[error("Domain `{domain}` already exists in the index")]
+    DomainAlreadyExists { domain: String },
 }
 
 #[derive(Error, Debug)]
