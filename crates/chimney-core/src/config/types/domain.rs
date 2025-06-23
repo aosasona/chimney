@@ -26,6 +26,12 @@ impl TryFrom<String> for Domain {
     type Error = ChimneyError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value = if value.starts_with("http://") || value.starts_with("https://") {
+            value
+        } else {
+            format!("http://{}", value)
+        };
+
         let url = Url::parse(&value).map_err(|e| {
             ChimneyError::DomainParseError(format!(
                 "Failed to parse domain name '{}': {}",
