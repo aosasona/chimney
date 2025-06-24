@@ -221,10 +221,26 @@ impl HyperService<Request<IncomingBody>> for Service {
 }
 
 pub enum Status {
-    Ok(String),
+    Ok {
+        /// The body of the response
+        body: String,
+
+        /// The headers to include in the response
+        headers: HeaderMap<HeaderValue>,
+    },
     NotFound,
     InternalServerError,
     BadRequest,
+    GenericError {
+        /// The error message to include in the response
+        message: String,
+
+        /// The HTTP status code to return
+        code: StatusCode,
+
+        /// Additional headers to include in the response
+        headers: HeaderMap<HeaderValue>,
+    },
 }
 
 const NOT_FOUND: &str = "Not Found";
@@ -234,7 +250,19 @@ const BAD_REQUEST: &str = "Bad Request";
 impl Service {
     fn respond(&self, status: Status) -> Response<Full<Bytes>> {
         match status {
-            Status::Ok(body) => Response::new(Full::new(Bytes::from(body))),
+            Status::Ok { body, headers } => {
+                let mut response = Response::builder()
+                    .status(StatusCode::OK)
+                    .body(Full::new(Bytes::from(body)))
+                    .unwrap();
+
+                // Add headers to the response
+                for (key, value) in headers.iter() {
+                    response.headers_mut().insert(key.clone(), value.clone());
+                }
+
+                response
+            }
             Status::NotFound => Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body(Full::new(Bytes::from(NOT_FOUND)))
@@ -247,6 +275,23 @@ impl Service {
                 .status(StatusCode::BAD_REQUEST)
                 .body(Full::new(Bytes::from(BAD_REQUEST)))
                 .unwrap(),
+            Status::GenericError {
+                message,
+                code,
+                headers,
+            } => {
+                let mut response = Response::builder()
+                    .status(code)
+                    .body(Full::new(Bytes::from(message)))
+                    .unwrap();
+
+                // Add headers to the response
+                for (key, value) in headers.iter() {
+                    response.headers_mut().insert(key.clone(), value.clone());
+                }
+
+                response
+            }
         }
     }
 }
