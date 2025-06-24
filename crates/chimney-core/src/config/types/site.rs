@@ -4,7 +4,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use toml::Table;
 
-use crate::error::ChimneyError;
+use crate::{error::ChimneyError, with_leading_slash};
 
 use super::{Domain, DomainIndex};
 
@@ -47,6 +47,21 @@ impl Https {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+/// Represents a redirect configuration
+pub enum Redirect {
+    Config {
+        #[serde(default)]
+        to: String,
+
+        #[serde(default)]
+        replay: bool,
+    },
+
+    Target(String),
+}
+
 /// Represents a site configuration
 ///
 /// A site configuration could be:
@@ -85,14 +100,14 @@ pub struct Site {
     ///
     /// For example, a request to `/old-path` can be redirected to `/new-path` with a 301 or 302 status code.
     #[serde(default)]
-    pub redirects: Vec<(String, String)>,
+    pub redirects: HashMap<String, Redirect>,
 
     /// A rewrites mapping that maps a source path to a destination path
     /// A rewrite is a way to change the target of a request without changing the source URL behind the scenes.
     ///
     /// For example, a request to `/old-path` can be rewritten to `/new-path` without the client knowing about it.
     #[serde(default)]
-    pub rewrites: Vec<(String, String)>,
+    pub rewrites: HashMap<String, String>,
 }
 
 impl Site {
@@ -134,6 +149,60 @@ impl Site {
         }
 
         Ok(site)
+    }
+}
+
+/// Represents a redirect rule found for a path
+pub struct RedirectRule {
+    /// The redirect rule found for the path
+    pub redirect: String,
+
+    /// Whether the redirect is a replay (temporary) or not (permanent)
+    pub replay: bool,
+}
+
+impl Site {
+    /// Finds a redirect rule for a given path
+    pub fn find_redirect(&self, path: &str) -> Option<RedirectRule> {
+        debug!("Finding redirect for path: {}", path);
+
+        if self.redirects.is_empty() {
+            debug!("No redirects configured for site: {}", self.name);
+            return None;
+        }
+
+        let redirect_key = with_leading_slash!(path);
+
+        #[cfg(debug_assertions)]
+        {
+            assert!(!redirect_key.is_empty(), "Redirect key cannot be empty");
+            assert!(
+                redirect_key.starts_with('/'),
+                "Redirect key must start with a leading slash"
+            );
+        }
+
+        debug!("Looking for redirect key: {}", redirect_key);
+        match self.redirects.get(&redirect_key) {
+            Some(Redirect::Config { to, replay }) => {
+                debug!("Found redirect to: {} with replay: {}", to, replay);
+                Some(RedirectRule {
+                    redirect: to.to_string(),
+                    replay: *replay,
+                })
+            }
+            Some(Redirect::Target(to)) => {
+                debug!("Found redirect target: {}", to);
+                Some(RedirectRule {
+                    redirect: to.clone(),
+                    replay: false, // Default to false for Target redirects
+                })
+            }
+            _ => {
+                debug!("No redirect found for path: {}", path);
+                None
+            }
+        }
     }
 }
 

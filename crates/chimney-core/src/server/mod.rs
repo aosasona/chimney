@@ -16,7 +16,6 @@ use tokio::{
 
 const SHUTDOWN_WAIT_PERIOD: u64 = 15; // seconds
 
-// TODO: build a domain and sites map to easily lookup sites by domain
 pub struct Server {
     /// The filesystem abstraction used by the server
     filesystem: Arc<dyn crate::filesystem::Filesystem>,

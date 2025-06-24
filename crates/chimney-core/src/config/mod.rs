@@ -1,6 +1,7 @@
 #[cfg(feature = "toml")]
 pub mod toml;
 
+pub mod macros;
 mod types;
 
 pub use types::*;

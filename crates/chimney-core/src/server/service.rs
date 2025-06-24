@@ -175,6 +175,24 @@ impl Service {
         Ok(resolved)
     }
 
+    /// Resolves a file path using the filesystem abstraction and the provided route
+    pub async fn resolve_file_from_route(
+        &self,
+        path: &str,
+    ) -> Result<String, crate::error::ServerError> {
+        debug!("Resolving file from path: {}", path);
+        unimplemented!()
+    }
+
+    /// Handles a redirect to the specified route.
+    pub async fn handle_redirect(
+        &self,
+        route: &str,
+    ) -> Result<Response<Full<Bytes>>, crate::error::ServerError> {
+        debug!("Handling redirect to route: {}", route);
+        unimplemented!()
+    }
+
     /// The main function that handles incoming requests.
     async fn handle_request(
         &self,
@@ -204,6 +222,13 @@ impl Service {
         } else {
             debug!("Not caching target header, auto-detect mode is disabled");
         }
+
+        // TODO: handle redirect
+
+        // Redirects take precedence over rewrites, we need to check for that first before
+        // any attempt to normalize the path (with index.html for example) or rewrite it
+
+        // TODO: handle rewrites
 
         unimplemented!()
     }
