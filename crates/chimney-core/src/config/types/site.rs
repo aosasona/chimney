@@ -51,14 +51,18 @@ impl Https {
 #[serde(untagged)]
 /// Represents a redirect configuration
 pub enum Redirect {
+    /// A redirect configuration with a target URL or path and a replay flag
     Config {
+        /// The target URL or path to redirect to
         #[serde(default)]
         to: String,
 
+        /// Whether the redirect is a replay (temporary) or not (permanent)
         #[serde(default)]
         replay: bool,
     },
 
+    /// A redirect to a target URL or path
     Target(String),
 }
 
