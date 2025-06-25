@@ -190,3 +190,65 @@ pub fn parse_config_with_manual_host_detection() {
         }
     );
 }
+
+#[test]
+pub fn parse_site_config_with_redirect() {
+    let name = "example";
+    let input = r#"
+    root = "./public"
+    domain_names = ["example.com"]
+
+    [redirects]
+    # with replay flag
+    "/foo" = { to = "/new-path", replay = true }
+    # without replay flag
+    "/bar" = "/another-new-path"
+    "#;
+
+    let site = Site::from_string(name.into(), input)
+        .expect("Failed to parse standalone site config with manual HTTPS");
+
+    assert_eq!(site.name, "example");
+    assert_eq!(site.root, "./public");
+
+    assert_eq!(
+        site.redirects.len(),
+        2,
+        "Expected two redirects in the site config"
+    );
+
+    // With replay
+    let redirect_foo = site
+        .find_redirect_rule("/foo")
+        .expect("Redirect for '/foo' not found");
+    assert_eq!(
+        redirect_foo.target(),
+        "/new-path",
+        "Expected redirect '/foo' to point to '/new-path'"
+    );
+    assert!(
+        redirect_foo.is_replay(),
+        "Expected redirect '/foo' to have replay enabled"
+    );
+
+    // Without replay
+    let redirect_bar = site
+        .find_redirect_rule("/bar")
+        .expect("Redirect for '/bar' not found");
+    assert_eq!(
+        redirect_bar.target(),
+        "/another-new-path",
+        "Expected redirect '/bar' to point to '/another-new-path'"
+    );
+
+    assert!(
+        !redirect_bar.is_replay(),
+        "Expected redirect '/bar' to not have replay enabled"
+    );
+
+    let redirect_baz = site.find_redirect_rule("/baz");
+    assert!(
+        redirect_baz.is_none(),
+        "Expected no redirect for '/baz', but found one"
+    );
+}
