@@ -163,7 +163,7 @@ pub struct RedirectRule {
 
 impl Site {
     /// Finds a redirect rule for a given path
-    pub fn find_redirect(&self, path: &str) -> Option<RedirectRule> {
+    pub fn find_redirect_rule(&self, path: &str) -> Option<RedirectRule> {
         debug!("Finding redirect for path: {}", path);
 
         if self.redirects.is_empty() {
