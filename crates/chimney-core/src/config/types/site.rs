@@ -76,7 +76,7 @@ impl RedirectRule {
     }
 
     /// Whether the redirect rule is a replay (temporary) redirect
-    pub fn replay(&self) -> bool {
+    pub fn is_replay(&self) -> bool {
         match self {
             RedirectRule::Target(_) => false,
             RedirectRule::Config { replay, .. } => *replay,
