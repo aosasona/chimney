@@ -66,7 +66,7 @@ pub enum RedirectRule {
 }
 
 impl RedirectRule {
-    /// Constructs a new `RedirectRule`
+    /// Constructs a new `RedirectRule` with a target URL or path
     pub fn new(to: String, replay: bool) -> Self {
         RedirectRule::Config { to, replay }
     }
@@ -88,6 +88,28 @@ impl RedirectRule {
         match self {
             RedirectRule::Target(target) => target.clone(),
             RedirectRule::Config { to, .. } => to.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+/// Represents a rewrite rule found for a path
+pub enum RewriteRule {
+    /// A rewrite rule with a target URL
+    Target(String),
+}
+
+impl RewriteRule {
+    /// Constructs a new `RewriteRule` with a proper leading slash
+    pub fn new(to: String) -> Self {
+        RewriteRule::Target(to)
+    }
+
+    /// Returns the target URL or path of the rewrite rule
+    pub fn target(&self) -> String {
+        match self {
+            RewriteRule::Target(target) => target.to_string(),
         }
     }
 }
@@ -137,7 +159,7 @@ pub struct Site {
     ///
     /// For example, a request to `/old-path` can be rewritten to `/new-path` without the client knowing about it.
     #[serde(default)]
-    pub rewrites: HashMap<String, String>,
+    pub rewrites: HashMap<String, RewriteRule>,
 }
 
 impl Site {
