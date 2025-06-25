@@ -47,23 +47,49 @@ impl Https {
     }
 }
 
+/// Represents a redirect rule found for a path
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
-/// Represents a redirect configuration
-pub enum Redirect {
-    /// A redirect configuration with a target URL or path and a replay flag
+pub enum RedirectRule {
+    /// A redirect rule with a target URL
+    Target(String),
+
+    /// A redirect rule with a configuration
     Config {
         /// The target URL or path to redirect to
-        #[serde(default)]
         to: String,
 
         /// Whether the redirect is a replay (temporary) or not (permanent)
-        #[serde(default)]
+        #[serde(default = "RedirectRule::default_replay")]
         replay: bool,
     },
+}
 
-    /// A redirect to a target URL or path
-    Target(String),
+impl RedirectRule {
+    /// Constructs a new `RedirectRule`
+    pub fn new(to: String, replay: bool) -> Self {
+        RedirectRule::Config { to, replay }
+    }
+
+    pub fn default_replay() -> bool {
+        false
+    }
+
+    /// Whether the redirect rule is a replay (temporary) redirect
+    pub fn replay(&self) -> bool {
+        match self {
+            RedirectRule::Target(_) => false,
+            RedirectRule::Config { replay, .. } => *replay,
+        }
+    }
+
+    /// Returns the target URL or path of the redirect rule
+    pub fn target(&self) -> String {
+        match self {
+            RedirectRule::Target(target) => target.clone(),
+            RedirectRule::Config { to, .. } => to.clone(),
+        }
+    }
 }
 
 /// Represents a site configuration
@@ -96,7 +122,7 @@ pub struct Site {
     /// The list of extra headers to include in the response
     /// Variables can be used here to fill in values dynamically from the request or the environment itself
     #[serde(default)]
-    pub response_headers: Vec<(String, String)>,
+    pub response_headers: HashMap<String, String>,
 
     /// A redirects mapping that maps a source path to a destination path
     /// A redirect is a permanent or temporary redirect from one URL to another, this makes proper
@@ -104,7 +130,7 @@ pub struct Site {
     ///
     /// For example, a request to `/old-path` can be redirected to `/new-path` with a 301 or 302 status code.
     #[serde(default)]
-    pub redirects: HashMap<String, Redirect>,
+    pub redirects: HashMap<String, RedirectRule>,
 
     /// A rewrites mapping that maps a source path to a destination path
     /// A rewrite is a way to change the target of a request without changing the source URL behind the scenes.
@@ -156,15 +182,6 @@ impl Site {
     }
 }
 
-/// Represents a redirect rule found for a path
-pub struct RedirectRule {
-    /// The redirect rule found for the path
-    pub redirect: String,
-
-    /// Whether the redirect is a replay (temporary) or not (permanent)
-    pub replay: bool,
-}
-
 impl Site {
     /// Finds a redirect rule for a given path
     pub fn find_redirect_rule(&self, path: &str) -> Option<RedirectRule> {
@@ -188,25 +205,21 @@ impl Site {
 
         debug!("Looking for redirect key: {}", redirect_key);
         match self.redirects.get(&redirect_key) {
-            Some(Redirect::Config { to, replay }) => {
-                debug!("Found redirect to: {} with replay: {}", to, replay);
-                Some(RedirectRule {
-                    redirect: to.to_string(),
-                    replay: *replay,
-                })
-            }
-            Some(Redirect::Target(to)) => {
-                debug!("Found redirect target: {}", to);
-                Some(RedirectRule {
-                    redirect: to.clone(),
-                    replay: false, // Default to false for Target redirects
-                })
+            Some(rule) => {
+                debug!("Found redirect rule for path: {}, rule: {:?}", path, rule);
+                Some(rule.clone())
             }
             _ => {
                 debug!("No redirect found for path: {}", path);
                 None
             }
         }
+    }
+
+    pub fn find_rewrite_rule(&self, path: &str) -> Option<String> {
+        debug!("Finding rewrite for path: {}", path);
+
+        unimplemented!()
     }
 }
 
