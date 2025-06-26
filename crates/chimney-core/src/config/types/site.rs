@@ -209,6 +209,11 @@ impl Site {
     pub fn find_redirect_rule(&self, path: &str) -> Option<RedirectRule> {
         debug!("Finding redirect for path: {}", path);
 
+        if path.is_empty() {
+            debug!("Path is empty, cannot find redirect rule");
+            return None;
+        }
+
         if self.redirects.is_empty() {
             debug!("No redirects configured for site: {}", self.name);
             return None;
@@ -238,10 +243,39 @@ impl Site {
         }
     }
 
-    pub fn find_rewrite_rule(&self, path: &str) -> Option<String> {
+    pub fn find_rewrite_rule(&self, path: &str) -> Option<RewriteRule> {
         debug!("Finding rewrite for path: {}", path);
+        if path.is_empty() {
+            debug!("Path is empty, cannot find rewrite rule");
+            return None;
+        }
 
-        unimplemented!()
+        if self.rewrites.is_empty() {
+            debug!("No rewrites configured for site: {}", self.name);
+            return None;
+        }
+
+        let rewrite_key = with_leading_slash!(path);
+        #[cfg(debug_assertions)]
+        {
+            assert!(!rewrite_key.is_empty(), "Rewrite key cannot be empty");
+            assert!(
+                rewrite_key.starts_with('/'),
+                "Rewrite key must start with a leading slash"
+            );
+        }
+
+        debug!("Looking for rewrite key: {}", rewrite_key);
+        match self.rewrites.get(&rewrite_key) {
+            Some(rule) => {
+                debug!("Found rewrite rule for path: {}, rule: {:?}", path, rule);
+                Some(rule.clone())
+            }
+            _ => {
+                debug!("No rewrite found for path: {}", path);
+                None
+            }
+        }
     }
 }
 
