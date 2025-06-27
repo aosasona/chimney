@@ -136,7 +136,7 @@ impl Server {
         connection: Result<(TcpStream, SocketAddr), std::io::Error>,
     ) -> Result<(), ServerError> {
         let (stream, addr) = connection.map_err(ServerError::FailedToAcceptConnection)?;
-        info!("Accepted connection from {}", addr);
+        debug!("Accepted connection from {}", addr);
 
         let io = TokioIo::new(stream);
         let service = self.service.clone();

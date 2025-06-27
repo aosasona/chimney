@@ -4,7 +4,7 @@ use hyper::header::HeaderValue;
 use hyper::service::Service as HyperService;
 use hyper::{HeaderMap, StatusCode};
 use hyper::{Request, Response, body::Incoming as IncomingBody};
-use log::{debug, trace};
+use log::{debug, info, trace};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -198,9 +198,13 @@ impl Service {
         &self,
         req: Request<IncomingBody>,
     ) -> Result<Response<Full<Bytes>>, ServerError> {
-        debug!("Handling {} {}", req.method(), req.uri());
-        debug!(
-            "User-Agent: {}",
+        use chrono::prelude::*;
+
+        info!(
+            "[{}] {} {} - {}",
+            Utc::now().to_rfc3339(),
+            req.method(),
+            req.uri(),
             req.headers()
                 .get("User-Agent")
                 .unwrap_or(&HeaderValue::from_static("Unknown"))
