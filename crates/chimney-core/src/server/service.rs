@@ -1,6 +1,6 @@
 use http_body_util::Full;
 use hyper::body::Bytes;
-use hyper::header::HeaderValue;
+use hyper::header::{self, HeaderValue};
 use hyper::service::Service as HyperService;
 use hyper::{HeaderMap, StatusCode};
 use hyper::{Request, Response, body::Incoming as IncomingBody};
@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::config::HostDetectionStrategy;
+use crate::config::{HostDetectionStrategy, RedirectRule};
 use crate::error::ServerError;
 
 pub struct DetectedHost {
@@ -260,6 +260,10 @@ pub enum Status {
     NotFound,
     InternalServerError,
     BadRequest,
+    Redirect {
+        /// The target URL or path to redirect to
+        target: String,
+    },
     GenericError {
         /// The error message to include in the response
         message: String,
@@ -304,6 +308,19 @@ impl Service {
                 .status(StatusCode::BAD_REQUEST)
                 .body(Full::new(Bytes::from(BAD_REQUEST)))
                 .unwrap(),
+            Status::Redirect { target } => {
+                let mut response = Response::builder()
+                    .status(StatusCode::FOUND) // Default to 302 Found
+                    .body(Full::new(Bytes::from(format!("Redirecting to {}", target))))
+                    .unwrap();
+
+                // Set the Location header for the redirect
+                response
+                    .headers_mut()
+                    .insert(header::LOCATION, HeaderValue::from_str(&target).unwrap());
+
+                response
+            }
             Status::GenericError {
                 message,
                 code,
@@ -322,5 +339,36 @@ impl Service {
                 response
             }
         }
+    }
+
+    /// Redirects to the specified target URL or path.
+    fn redirect(&self, rule: RedirectRule) -> Result<Response<Full<Bytes>>, ServerError> {
+        debug!("Redirecting to: {}", rule.target());
+
+        let status = match (rule.is_temporary(), rule.is_replay()) {
+            // Temporary + replay
+            (true, true) => StatusCode::TEMPORARY_REDIRECT, // 307 Temporary Redirect
+            // Permanent + replay
+            (false, true) => StatusCode::PERMANENT_REDIRECT, // 308 Permanent Redirect
+            // Temporary + not replay
+            (true, false) => StatusCode::FOUND, // 302 Found
+            // Permanent + not replay
+            (false, false) => StatusCode::MOVED_PERMANENTLY, // 301 Moved Permanently
+        };
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::LOCATION,
+            HeaderValue::from_str(&rule.target()).map_err(|e| ServerError::InvalidHeaderValue {
+                header: "Location".to_string(),
+                value: rule.target().to_string(),
+                message: e.to_string(),
+            })?,
+        );
+
+        debug!("Redirecting to: {}, status: {}", rule.target(), status);
+        Ok(self.respond(Status::Redirect {
+            target: rule.target().to_string(),
+        }))
     }
 }

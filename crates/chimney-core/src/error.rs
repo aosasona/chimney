@@ -49,4 +49,11 @@ pub enum ServerError {
         "No host header has been cached, cannot resolve host. This should not happen and is most likely a bug."
     )]
     MissingResolvedHostHeader,
+
+    #[error("Invalid header value for `{header}`: `{value}`, reason: {message}")]
+    InvalidHeaderValue {
+        header: String,
+        value: String,
+        message: String,
+    },
 }
