@@ -252,3 +252,56 @@ pub fn parse_site_config_with_redirect() {
         "Expected no redirect for '/baz', but found one"
     );
 }
+
+#[test]
+pub fn parse_site_config_with_rewrite() {
+    let name = "example";
+    let input = r#"
+    root = "./public"
+    domain_names = ["example.com"]
+
+    [rewrites]
+    "/foo" = "/foo-rewrite"
+    "/bar" = "/bar-rewrite"
+    "#;
+
+    let site = Site::from_string(name.into(), input)
+        .expect("Failed to parse standalone site config with manual HTTPS");
+
+    assert_eq!(site.name, "example");
+    assert_eq!(site.root, "./public");
+
+    assert_eq!(
+        site.rewrites.len(),
+        2,
+        "Expected two rewrites in the site config"
+    );
+
+    // Check rewrite for "/foo"
+    let rewrite_foo = site
+        .find_rewrite_rule("/foo")
+        .expect("Rewrite for '/foo' not found");
+    assert_eq!(
+        rewrite_foo.target(),
+        "/foo-rewrite",
+        "Expected rewrite '/foo' to point to '/foo-rewrite'"
+    );
+
+    // Check rewrite for "/bar"
+    let rewrite_bar = site
+        .find_rewrite_rule("/bar")
+        .expect("Rewrite for '/bar' not found");
+
+    assert_eq!(
+        rewrite_bar.target(),
+        "/bar-rewrite",
+        "Expected rewrite '/bar' to point to '/bar-rewrite'"
+    );
+
+    // Check for a fake rewrite
+    let rewrite_baz = site.find_rewrite_rule("/baz");
+    assert!(
+        rewrite_baz.is_none(),
+        "Expected no rewrite for '/baz', but found one"
+    );
+}
