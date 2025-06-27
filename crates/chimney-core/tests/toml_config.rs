@@ -199,10 +199,12 @@ pub fn parse_site_config_with_redirect() {
     domain_names = ["example.com"]
 
     [redirects]
-    # with replay flag
-    "/foo" = { to = "/new-path", replay = true }
-    # without replay flag
+    # with temporary flag
+    "/foo" = { to = "/new-path", temporary = true }
+    # without temporary flag
     "/bar" = "/another-new-path"
+    # with replay and temporary redirect
+    "/baz" = { to = "/yet-another-path", temporary = true, replay = true }
     "#;
 
     let site = Site::from_string(name.into(), input)
@@ -213,11 +215,11 @@ pub fn parse_site_config_with_redirect() {
 
     assert_eq!(
         site.redirects.len(),
-        2,
+        3,
         "Expected two redirects in the site config"
     );
 
-    // With replay
+    // With temporary redirect
     let redirect_foo = site
         .find_redirect_rule("/foo")
         .expect("Redirect for '/foo' not found");
@@ -227,11 +229,15 @@ pub fn parse_site_config_with_redirect() {
         "Expected redirect '/foo' to point to '/new-path'"
     );
     assert!(
-        redirect_foo.is_replay(),
+        redirect_foo.is_temporary(),
         "Expected redirect '/foo' to have replay enabled"
     );
+    assert!(
+        !redirect_foo.is_replay(),
+        "Expected redirect '/foo' to not have replay enabled"
+    );
 
-    // Without replay
+    // Without temporary redirect
     let redirect_bar = site
         .find_redirect_rule("/bar")
         .expect("Redirect for '/bar' not found");
@@ -240,16 +246,37 @@ pub fn parse_site_config_with_redirect() {
         "/another-new-path",
         "Expected redirect '/bar' to point to '/another-new-path'"
     );
-
+    // This redirect should not have the temporary flag set
+    assert!(
+        !redirect_bar.is_temporary(),
+        "Expected redirect '/bar' to not have temporary flag enabled"
+    );
+    // This redirect should not have replay enabled
     assert!(
         !redirect_bar.is_replay(),
         "Expected redirect '/bar' to not have replay enabled"
     );
 
-    let redirect_baz = site.find_redirect_rule("/baz");
     assert!(
-        redirect_baz.is_none(),
-        "Expected no redirect for '/baz', but found one"
+        !redirect_bar.is_temporary(),
+        "Expected redirect '/bar' to not have replay enabled"
+    );
+
+    let redirect_baz = site
+        .find_redirect_rule("/baz")
+        .expect("Redirect for '/baz' not found");
+    assert_eq!(
+        redirect_baz.target(),
+        "/yet-another-path",
+        "Expected redirect '/baz' to point to '/yet-another-path'"
+    );
+    assert!(
+        redirect_baz.is_temporary(),
+        "Expected redirect '/baz' to have temporary flag enabled"
+    );
+    assert!(
+        redirect_baz.is_replay(),
+        "Expected redirect '/baz' to have replay enabled"
     );
 }
 

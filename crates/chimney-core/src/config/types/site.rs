@@ -59,7 +59,16 @@ pub enum RedirectRule {
         /// The target URL or path to redirect to
         to: String,
 
-        /// Whether the redirect is a replay (temporary) or not (permanent)
+        /// Whether the redirect is a temporary redirect
+        #[serde(default = "RedirectRule::default_temporary_redirect")]
+        temporary: bool,
+
+        /// Whether the redirect should be replayed (e.g., for logging or analytics)
+        /// A replayed redirect means that the method of the request is preserved
+        /// and the request is not changed to a GET request.
+        ///
+        /// This could be dangerous if the target URL is not safe to replay, for example, posts to
+        /// a form or other actions that change state.
         #[serde(default = "RedirectRule::default_replay")]
         replay: bool,
     },
@@ -67,19 +76,35 @@ pub enum RedirectRule {
 
 impl RedirectRule {
     /// Constructs a new `RedirectRule` with a target URL or path
-    pub fn new(to: String, replay: bool) -> Self {
-        RedirectRule::Config { to, replay }
+    pub fn new(to: String, temporary: bool, replay: bool) -> Self {
+        RedirectRule::Config {
+            to,
+            temporary,
+            replay,
+        }
+    }
+
+    pub fn default_temporary_redirect() -> bool {
+        false
     }
 
     pub fn default_replay() -> bool {
         false
     }
 
-    /// Whether the redirect rule is a replay (temporary) redirect
+    /// Whether the redirect rule is a replay
     pub fn is_replay(&self) -> bool {
         match self {
             RedirectRule::Target(_) => false,
             RedirectRule::Config { replay, .. } => *replay,
+        }
+    }
+
+    /// Whether the redirect rule is a temporary redirect
+    pub fn is_temporary(&self) -> bool {
+        match self {
+            RedirectRule::Target(_) => false,
+            RedirectRule::Config { temporary, .. } => *temporary,
         }
     }
 
@@ -150,7 +175,7 @@ pub struct Site {
     /// A redirect is a permanent or temporary redirect from one URL to another, this makes proper
     /// use of the HTTP status codes and conforms to the HTTP standards.
     ///
-    /// For example, a request to `/old-path` can be redirected to `/new-path` with a 301 or 302 status code.
+    /// For example, a request to `/old-path` can be redirected to `/new-path`
     #[serde(default)]
     pub redirects: HashMap<String, RedirectRule>,
 
