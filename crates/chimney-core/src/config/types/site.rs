@@ -200,8 +200,8 @@ impl Site {
     pub fn from_string(name: String, input: &str) -> Result<Self, ChimneyError> {
         // Parse the input string as a TOML table
         let table: Table = toml::from_str(input).map_err(|e| ChimneyError::ParseError {
-            field: format!("sites.{}", name),
-            message: format!("Failed to parse site `{}`: {}", name, e),
+            field: format!("sites.{name}"),
+            message: format!("Failed to parse site `{name}`: {e}"),
         })?;
 
         // Construct the site from the parsed table
@@ -211,8 +211,8 @@ impl Site {
     ///  Constructs a `Site` from a TOML table
     pub fn from_table(name: String, table: Table) -> Result<Self, ChimneyError> {
         let mut site: Self = table.try_into().map_err(|e| ChimneyError::ParseError {
-            field: format!("sites.{}", name),
-            message: format!("Failed to parse site `{}`: {}", name, e),
+            field: format!("sites.{name}"),
+            message: format!("Failed to parse site `{name}`: {e}"),
         })?;
 
         site.name = name.clone();
@@ -220,7 +220,7 @@ impl Site {
         // Ensure the site has a name
         if site.name.is_empty() {
             return Err(ChimneyError::ConfigError {
-                field: format!("sites.{}", name),
+                field: format!("sites.{name}"),
                 message: "Site name cannot be empty".to_string(),
             });
         }
@@ -232,7 +232,7 @@ impl Site {
 impl Site {
     /// Finds a redirect rule for a given path
     pub fn find_redirect_rule(&self, path: &str) -> Option<RedirectRule> {
-        debug!("Finding redirect for path: {}", path);
+        debug!("Finding redirect for path: {path}");
 
         if path.is_empty() {
             debug!("Path is empty, cannot find redirect rule");
@@ -255,21 +255,21 @@ impl Site {
             );
         }
 
-        debug!("Looking for redirect key: {}", redirect_key);
+        debug!("Looking for redirect key: {redirect_key}");
         match self.redirects.get(&redirect_key) {
             Some(rule) => {
-                debug!("Found redirect rule for path: {}, rule: {:?}", path, rule);
+                debug!("Found redirect rule for path: {path}, rule: {rule:?}");
                 Some(rule.clone())
             }
             _ => {
-                debug!("No redirect found for path: {}", path);
+                debug!("No redirect found for path: {path}");
                 None
             }
         }
     }
 
     pub fn find_rewrite_rule(&self, path: &str) -> Option<RewriteRule> {
-        debug!("Finding rewrite for path: {}", path);
+        debug!("Finding rewrite for path: {path}");
         if path.is_empty() {
             debug!("Path is empty, cannot find rewrite rule");
             return None;
@@ -290,14 +290,14 @@ impl Site {
             );
         }
 
-        debug!("Looking for rewrite key: {}", rewrite_key);
+        debug!("Looking for rewrite key: {rewrite_key}");
         match self.rewrites.get(&rewrite_key) {
             Some(rule) => {
-                debug!("Found rewrite rule for path: {}, rule: {:?}", path, rule);
+                debug!("Found rewrite rule for path: {path}, rule: {rule:?}");
                 Some(rule.clone())
             }
             _ => {
-                debug!("No rewrite found for path: {}", path);
+                debug!("No rewrite found for path: {path}");
                 None
             }
         }
@@ -391,7 +391,7 @@ impl Sites {
         }
 
         Err(ChimneyError::ConfigError {
-            field: format!("sites.{}", name),
+            field: format!("sites.{name}"),
             message: "Site with this name does not exist".to_string(),
         })
     }

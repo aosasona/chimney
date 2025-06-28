@@ -29,21 +29,19 @@ impl TryFrom<String> for Domain {
         let value = if value.starts_with("http://") || value.starts_with("https://") {
             value
         } else {
-            format!("http://{}", value)
+            format!("http://{value}")
         };
 
         let url = Url::parse(&value).map_err(|e| {
             ChimneyError::DomainParseError(format!(
-                "Failed to parse domain name '{}': {}",
-                value, e
+                "Failed to parse domain name '{value}': {e}"
             ))
         })?;
         let name = url
             .host_str()
             .ok_or_else(|| {
                 ChimneyError::DomainParseError(format!(
-                    "Invalid domain name '{}': no host found",
-                    value
+                    "Invalid domain name '{value}': no host found"
                 ))
             })?
             .to_string();

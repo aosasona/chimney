@@ -52,7 +52,7 @@ impl Server {
     }
 
     pub fn set_graceful_shutdown(&mut self, graceful: bool) {
-        debug!("Setting graceful shutdown to {}", graceful);
+        debug!("Setting graceful shutdown to {graceful}");
         self.graceful_shutdown = graceful;
     }
 
@@ -85,7 +85,7 @@ impl Server {
         }
 
         let raw_addr = format!("{}:{}", config.host, config.port);
-        debug!("Parsing socket address: {}", raw_addr);
+        debug!("Parsing socket address: {raw_addr}");
         raw_addr
             .parse::<SocketAddr>()
             .map_err(|e| ServerError::InvalidRawSocketAddress {
@@ -136,7 +136,7 @@ impl Server {
         connection: Result<(TcpStream, SocketAddr), std::io::Error>,
     ) -> Result<(), ServerError> {
         let (stream, addr) = connection.map_err(ServerError::FailedToAcceptConnection)?;
-        debug!("Accepted connection from {}", addr);
+        debug!("Accepted connection from {addr}");
 
         let io = TokioIo::new(stream);
         let service = self.service.clone();
@@ -144,7 +144,7 @@ impl Server {
         // Handle the TCP stream in a separate task
         tokio::task::spawn(async move {
             if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
-                println!("Failed to serve connection: {:?}", err);
+                println!("Failed to serve connection: {err:?}");
             }
         });
 

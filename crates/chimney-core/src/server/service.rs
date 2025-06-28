@@ -54,10 +54,7 @@ impl Service {
             .resolved_host_header()
             .ok_or(crate::error::ServerError::MissingResolvedHostHeader)?;
 
-        debug!(
-            "Using cached resolved host header: {}",
-            resolved_header_name
-        );
+        debug!("Using cached resolved host header: {resolved_header_name}",);
 
         if let Some(value) = headers.get(&resolved_header_name) {
             if let Ok(host) = value.to_str() {
@@ -70,17 +67,13 @@ impl Service {
 
             return Err(crate::error::ServerError::HostDetectionFailed {
                 message: format!(
-                    "Cached header '{}' is not a valid UTF-8 string",
-                    resolved_header_name
+                    "Cached header '{resolved_header_name}' is not a valid UTF-8 string",
                 ),
             });
         }
 
         Err(crate::error::ServerError::HostDetectionFailed {
-            message: format!(
-                "Cached header '{}' not found in request headers",
-                resolved_header_name
-            ),
+            message: format!("Cached header '{resolved_header_name}' not found in request headers",),
         })
     }
 
@@ -116,10 +109,10 @@ impl Service {
                         });
                     }
 
-                    debug!("Header '{}' is not a valid UTF-8 string header", header);
+                    debug!("Header '{header}' is not a valid UTF-8 string header");
                 }
                 None => {
-                    debug!("Header '{}' not found in request", header);
+                    debug!("Header '{header}' not found in request");
                 }
             }
         }
@@ -180,7 +173,7 @@ impl Service {
         &self,
         path: &str,
     ) -> Result<String, crate::error::ServerError> {
-        debug!("Resolving file from path: {}", path);
+        debug!("Resolving file from path: {path}");
         unimplemented!()
     }
 
@@ -204,7 +197,7 @@ impl Service {
         );
 
         let headers = req.headers();
-        trace!("Request headers: {:?}", headers);
+        trace!("Request headers: {headers:?}");
 
         let resolved = self.resolve_host(headers).await?;
         trace!("Resolved host: {:?}", resolved.host);
@@ -302,7 +295,7 @@ impl Service {
             Status::Redirect { target } => {
                 let mut response = Response::builder()
                     .status(StatusCode::FOUND) // Default to 302 Found
-                    .body(Full::new(Bytes::from(format!("Redirecting to {}", target))))
+                    .body(Full::new(Bytes::from(format!("Redirecting to {target}"))))
                     .unwrap();
 
                 // Set the Location header for the redirect

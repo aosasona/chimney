@@ -94,7 +94,7 @@ impl Cli {
         match &self.command {
             Commands::Serve { config_path } => {
                 let config = self.load_config(config_path)?;
-                log::info!("Parsed configuration: {:?}", config);
+                log::info!("Parsed configuration: {config:?}");
                 self.run_server(config).await
             }
             Commands::Init { path, format } => self.generate_default_config(path.clone(), format),
@@ -116,7 +116,7 @@ impl Cli {
         server
             .run()
             .await
-            .map_err(|e| CliError::Generic(format!("Failed to start the server: {}", e)))?;
+            .map_err(|e| CliError::Generic(format!("Failed to start the server: {e}")))?;
 
         Ok(())
     }
@@ -128,7 +128,7 @@ impl Cli {
             let path = PathBuf::from(path);
             let path = path
                 .canonicalize()
-                .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {}", e)))?;
+                .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {e}")))?;
 
             log::info!("Loading configuration from: {}", path.display());
 
@@ -159,7 +159,7 @@ impl Cli {
         let config = Config::default();
         let mut path = path
             .canonicalize()
-            .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {}", e)))?;
+            .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {e}")))?;
 
         // Create the format instance based on the provided format type
         let format_instance: Box<dyn Format> = format.format(None);

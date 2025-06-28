@@ -8,7 +8,7 @@ async fn main() {
 
     if let Err(e) = cli.execute().await {
         dbg!(&e);
-        log::error!("Error: {}", e);
+        log::error!("Error: {e}");
         std::process::exit(1);
     }
 }

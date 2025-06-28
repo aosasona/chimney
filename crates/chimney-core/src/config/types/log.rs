@@ -54,7 +54,7 @@ impl std::str::FromStr for LogLevel {
             "info" => Ok(LogLevel::Info),
             "debug" => Ok(LogLevel::Debug),
             "trace" => Ok(LogLevel::Trace),
-            _ => Err(format!("Invalid log level: {}", s)),
+            _ => Err(format!("Invalid log level: {s}")),
         }
     }
 }
@@ -69,6 +69,6 @@ impl Display for LogLevel {
             LogLevel::Debug => "debug",
             LogLevel::Trace => "trace",
         };
-        write!(f, "{}", level_str)
+        write!(f, "{level_str}")
     }
 }
