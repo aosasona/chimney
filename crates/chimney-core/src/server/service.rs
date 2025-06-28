@@ -176,20 +176,11 @@ impl Service {
     }
 
     /// Resolves a file path using the filesystem abstraction and the provided route
-    pub async fn resolve_file_from_route(
+    pub async fn resolve_file_from_path(
         &self,
         path: &str,
     ) -> Result<String, crate::error::ServerError> {
         debug!("Resolving file from path: {}", path);
-        unimplemented!()
-    }
-
-    /// Handles a redirect to the specified route.
-    pub async fn handle_redirect(
-        &self,
-        route: &str,
-    ) -> Result<Response<Full<Bytes>>, crate::error::ServerError> {
-        debug!("Handling redirect to route: {}", route);
         unimplemented!()
     }
 
@@ -342,7 +333,7 @@ impl Service {
     }
 
     /// Redirects to the specified target URL or path.
-    fn redirect(&self, rule: RedirectRule) -> Result<Response<Full<Bytes>>, ServerError> {
+    fn handle_redirect(&self, rule: RedirectRule) -> Result<Response<Full<Bytes>>, ServerError> {
         debug!("Redirecting to: {}", rule.target());
 
         let status = match (rule.is_temporary(), rule.is_replay()) {
@@ -372,7 +363,7 @@ impl Service {
         }))
     }
 
-    fn rewrite(&self, rule: RewriteRule) -> Result<Response<Full<Bytes>>, ServerError> {
+    fn handle_rewrite(&self, rule: RewriteRule) -> Result<Response<Full<Bytes>>, ServerError> {
         debug!("Rewriting to: {}", rule.target());
 
         unimplemented!("file resolution logic has not been implemented yet")
