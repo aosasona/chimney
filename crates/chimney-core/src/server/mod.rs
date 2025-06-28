@@ -1,12 +1,11 @@
-#![allow(unused)]
+pub mod mimetype;
 pub mod service;
 
-// TODO: remove
 use std::{net::SocketAddr, sync::Arc};
 
 use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
-use log::{debug, error, info};
+use log::{debug, error};
 
 use crate::error::ServerError;
 use tokio::{
@@ -17,9 +16,6 @@ use tokio::{
 const SHUTDOWN_WAIT_PERIOD: u64 = 15; // seconds
 
 pub struct Server {
-    /// The filesystem abstraction used by the server
-    filesystem: Arc<dyn crate::filesystem::Filesystem>,
-
     /// The configuration for the server
     config: Arc<RwLock<crate::config::Config>>,
 
@@ -43,7 +39,6 @@ impl Server {
         let service = service::Service::new(filesystem.clone(), config.clone());
 
         Server {
-            filesystem,
             config,
             signal: Arc::new(Notify::new()),
             graceful_shutdown: true,
