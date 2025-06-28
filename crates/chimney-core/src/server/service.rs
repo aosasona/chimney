@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::config::{HostDetectionStrategy, RedirectRule};
+use crate::config::{HostDetectionStrategy, RedirectRule, RewriteRule};
 use crate::error::ServerError;
 
 pub struct DetectedHost {
@@ -370,5 +370,11 @@ impl Service {
         Ok(self.respond(Status::Redirect {
             target: rule.target().to_string(),
         }))
+    }
+
+    fn rewrite(&self, rule: RewriteRule) -> Result<Response<Full<Bytes>>, ServerError> {
+        debug!("Rewriting to: {}", rule.target());
+
+        unimplemented!("file resolution logic has not been implemented yet")
     }
 }
