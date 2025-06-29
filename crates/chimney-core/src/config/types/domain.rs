@@ -103,3 +103,61 @@ impl DomainIndex {
         self.inner.retain(|_, v| v != site_name);
     }
 }
+
+mod tests {
+    #[test]
+    fn test_domain_from_str() {
+        use crate::config::{Domain, types::domain::WILDCARD_DOMAIN};
+
+        let domain: Domain = "example.com".to_string().try_into().unwrap();
+        assert_eq!(domain.name, "example.com");
+        assert!(domain.port.is_none());
+
+        let domain: Domain = "http://example.com:8080".to_string().try_into().unwrap();
+        assert_eq!(domain.name, "example.com");
+        assert_eq!(domain.port, Some(8080));
+
+        let domain: Domain = "*".to_string().try_into().unwrap();
+        assert_eq!(domain.name, WILDCARD_DOMAIN);
+        assert!(domain.port.is_none());
+    }
+
+    #[test]
+    fn test_domain_index_insert_and_get() {
+        use crate::config::types::domain::{Domain, DomainIndex};
+
+        let mut index = DomainIndex::default();
+        let domain = Domain {
+            name: "example.com".to_string(),
+            port: Some(80),
+        };
+        index
+            .insert(domain.clone(), "example_site".to_string())
+            .unwrap();
+
+        assert!(index.contains(&domain));
+        assert_eq!(index.get(&domain), Some(&"example_site".to_string()));
+    }
+
+    #[test]
+    fn test_wildcard_index() {
+        use crate::config::types::domain::{Domain, DomainIndex, WILDCARD_DOMAIN};
+
+        let mut index = DomainIndex::default();
+        let wildcard_domain = Domain {
+            name: WILDCARD_DOMAIN.to_string(),
+            port: None,
+        };
+        index
+            .insert(wildcard_domain.clone(), "wildcard_site".to_string())
+            .unwrap();
+
+        // This should return the wildcard site name
+        let example_domain = Domain {
+            name: "example.com".to_string(),
+            port: None,
+        };
+        assert!(index.get(&example_domain).is_some());
+        assert_eq!(index.get(&example_domain).unwrap(), "wildcard_site");
+    }
+}
