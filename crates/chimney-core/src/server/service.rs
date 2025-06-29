@@ -213,10 +213,29 @@ impl Service {
             debug!("Not caching target header, auto-detect mode is disabled");
         }
 
-        // TODO: handle redirect
+        let config = self.config.read().await;
+        let site = config
+            .sites
+            .find_by_hostname(&resolved.host)
+            .ok_or_else(|| ServerError::SiteNotFound {
+                host: resolved.host.clone(),
+            })?;
+        let path = with_leading_slash!(req.uri().path());
 
         // Redirects take precedence over rewrites, we need to check for that first before
         // any attempt to normalize the path (with index.html for example) or rewrite it
+        if let Some(rule) = site.find_redirect_rule(path.as_str()) {
+            debug!("Found redirect rule for path: {}", req.uri().path());
+            return self.handle_redirect(rule);
+        }
+
+        // We need to check for possible rewrite rules, since if there are any, we need to use the
+        // configured rewrite path going forward.
+        let path = site
+            .find_rewrite_rule(path.as_str())
+            .map_or(path.to_string(), |rule| rule.target().to_string());
+
+        debug!("Resolved path after rewrites: {path}");
 
         // TODO: handle rewrites
 
@@ -260,10 +279,7 @@ impl HyperService<Request<IncomingBody>> for Service {
         Box::pin(async move {
             match service.handle_request(req).await {
                 Ok(response) => Ok(response),
-                Err(e) => {
-                    // Handle the error and return a response
-                    Ok(service.handle_error(e))
-                }
+                Err(e) => Ok(service.handle_error(e)),
             }
         })
     }
@@ -309,7 +325,6 @@ impl Service {
                     .body(Full::new(Bytes::from(body)))
                     .unwrap();
 
-                // Add headers to the response
                 for (key, value) in headers.iter() {
                     response.headers_mut().insert(key.clone(), value.clone());
                 }
@@ -334,7 +349,6 @@ impl Service {
                     .body(Full::new(Bytes::from(format!("Redirecting to {target}"))))
                     .unwrap();
 
-                // Set the Location header for the redirect
                 response
                     .headers_mut()
                     .insert(header::LOCATION, HeaderValue::from_str(&target).unwrap());
@@ -351,7 +365,6 @@ impl Service {
                     .body(Full::new(Bytes::from(message)))
                     .unwrap();
 
-                // Add headers to the response
                 for (key, value) in headers.iter() {
                     response.headers_mut().insert(key.clone(), value.clone());
                 }
