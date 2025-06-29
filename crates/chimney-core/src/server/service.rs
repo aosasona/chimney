@@ -9,8 +9,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::config::{HostDetectionStrategy, RedirectRule, RewriteRule};
+use crate::config::RedirectRule;
 use crate::error::ServerError;
+use crate::with_leading_slash;
 
 pub struct DetectedHost {
     /// The detected host, which can be a domain or an IP address
@@ -26,6 +27,7 @@ pub struct DetectedHost {
 /// A service handles an incoming HTTP request and returns a response.
 /// It handles resolution of requests to the appropriate filesystem paths and other resources.
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Service {
     /// The filesystem abstraction used by the server
     filesystem: Arc<dyn crate::filesystem::Filesystem>,
@@ -220,6 +222,32 @@ impl Service {
 
         unimplemented!()
     }
+
+    /// Handles errors that occur during request processing.
+    fn handle_error(&self, error: ServerError) -> Response<Full<Bytes>> {
+        debug!("Handling error: {error}");
+        let status = match error {
+            ServerError::SiteNotFound { host } => Status::GenericError {
+                message: format!("No site found for host: {host}"),
+                code: StatusCode::NOT_FOUND,
+                headers: HeaderMap::new(),
+            },
+            ServerError::InvalidHeaderValue {
+                header,
+                value,
+                message,
+            } => Status::GenericError {
+                message: format!(
+                    "Invalid header value for '{header}': '{value}', reason: {message}"
+                ),
+                code: StatusCode::BAD_REQUEST,
+                headers: HeaderMap::new(),
+            },
+            _ => Status::InternalServerError,
+        };
+
+        self.respond(status)
+    }
 }
 
 impl HyperService<Request<IncomingBody>> for Service {
@@ -229,7 +257,15 @@ impl HyperService<Request<IncomingBody>> for Service {
 
     fn call(&self, req: Request<IncomingBody>) -> Self::Future {
         let service = self.clone();
-        Box::pin(async move { service.handle_request(req).await })
+        Box::pin(async move {
+            match service.handle_request(req).await {
+                Ok(response) => Ok(response),
+                Err(e) => {
+                    // Handle the error and return a response
+                    Ok(service.handle_error(e))
+                }
+            }
+        })
     }
 }
 
@@ -354,11 +390,5 @@ impl Service {
         Ok(self.respond(Status::Redirect {
             target: rule.target().to_string(),
         }))
-    }
-
-    fn handle_rewrite(&self, rule: RewriteRule) -> Result<Response<Full<Bytes>>, ServerError> {
-        debug!("Rewriting to: {}", rule.target());
-
-        unimplemented!("file resolution logic has not been implemented yet")
     }
 }
