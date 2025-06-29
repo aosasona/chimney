@@ -66,7 +66,7 @@ impl Filesystem for LocalFS {
         Ok(Content::new(content))
     }
 
-    fn get_file_metadata(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError> {
+    fn stat(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError> {
         AbstractFile::from_disk_path(path)
     }
 }

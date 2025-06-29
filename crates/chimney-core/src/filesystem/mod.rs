@@ -167,5 +167,5 @@ pub trait Filesystem: Send + Sync {
     fn read_file(&self, path: PathBuf) -> Result<Content, FilesystemError>;
 
     /// Get a file's metadata.
-    fn get_file_metadata(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError>;
+    fn stat(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError>;
 }

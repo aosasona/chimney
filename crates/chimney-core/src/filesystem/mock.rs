@@ -92,10 +92,7 @@ impl Filesystem for MockFilesystem {
         })
     }
 
-    fn get_file_metadata(
-        &self,
-        path: std::path::PathBuf,
-    ) -> Result<AbstractFile, super::FilesystemError> {
+    fn stat(&self, path: std::path::PathBuf) -> Result<AbstractFile, super::FilesystemError> {
         let path_str = path.to_string_lossy();
         for (file_name, _) in MOCK_FILES {
             if path_str == *file_name {
@@ -152,7 +149,7 @@ mod tests {
     fn test_mock_filesystem_get_file_metadata() {
         let fs = MockFilesystem;
         let path = std::path::PathBuf::from("about.html");
-        let file = fs.get_file_metadata(path).unwrap();
+        let file = fs.stat(path).unwrap();
 
         assert!(file.is_file());
         assert_eq!(file.path.to_string_lossy(), "about.html");
@@ -176,7 +173,7 @@ mod tests {
     fn test_mock_filesystem_metadata_not_found() {
         let fs = MockFilesystem;
         let path = std::path::PathBuf::from("nonexistent.txt");
-        let result = fs.get_file_metadata(path);
+        let result = fs.stat(path);
         assert!(result.is_err());
         if let Err(crate::filesystem::FilesystemError::MetadataError { path, message }) = result {
             assert_eq!(path.to_string_lossy(), "nonexistent.txt");
