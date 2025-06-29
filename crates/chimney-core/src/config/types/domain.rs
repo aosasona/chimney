@@ -5,6 +5,8 @@ use url::Url;
 
 use crate::error::ChimneyError;
 
+const WILDCARD_DOMAIN: &str = "*";
+
 /// Represents a domain name with an optional port number
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, Hash)]
 pub struct Domain {
@@ -26,6 +28,14 @@ impl TryFrom<String> for Domain {
     type Error = ChimneyError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
+        // Handle * as wildcard domain
+        if value.trim() == WILDCARD_DOMAIN {
+            return Ok(Domain {
+                name: WILDCARD_DOMAIN.to_string(),
+                port: None,
+            });
+        }
+
         let value = if value.starts_with("http://") || value.starts_with("https://") {
             value
         } else {
@@ -33,9 +43,7 @@ impl TryFrom<String> for Domain {
         };
 
         let url = Url::parse(&value).map_err(|e| {
-            ChimneyError::DomainParseError(format!(
-                "Failed to parse domain name '{value}': {e}"
-            ))
+            ChimneyError::DomainParseError(format!("Failed to parse domain name '{value}': {e}"))
         })?;
         let name = url
             .host_str()
@@ -71,9 +79,18 @@ impl DomainIndex {
         Ok(())
     }
 
+    /// Gets the wildcard domain site name if it exists
+    pub fn get_wildcard(&self) -> Option<&String> {
+        self.get(&Domain {
+            name: WILDCARD_DOMAIN.to_string(),
+            port: None,
+        })
+    }
+
     /// Looks up a site name by domain
+    /// If the domain is not found, and there is a wildcard domain, it returns the wildcard site name
     pub fn get(&self, domain: &Domain) -> Option<&String> {
-        self.inner.get(domain)
+        self.inner.get(domain).or_else(|| self.get_wildcard())
     }
 
     /// Checks if the index contains a domain
