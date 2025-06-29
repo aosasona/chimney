@@ -5,11 +5,12 @@ use hyper::service::Service as HyperService;
 use hyper::{HeaderMap, StatusCode};
 use hyper::{Request, Response, body::Incoming as IncomingBody};
 use log::{debug, info, trace};
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::config::RedirectRule;
+use crate::config::{RedirectRule, Site};
 use crate::error::ServerError;
 use crate::with_leading_slash;
 
@@ -171,11 +172,23 @@ impl Service {
     }
 
     /// Resolves a file path using the filesystem abstraction and the provided route
-    pub async fn resolve_file_from_path(
+    pub async fn resolve_file_from_route(
         &self,
-        path: &str,
+        route: &str,
+        site: &Site,
     ) -> Result<String, crate::error::ServerError> {
-        debug!("Resolving file from path: {path}");
+        let route = with_leading_slash!(route);
+        debug!("Resolving file from route: {route}");
+
+        let config = self.config.read().await;
+
+        let _path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
+
+        // We need to first normalize to an index file if any of the following conditions are met:
+        // - the path is empty
+        // - the path is a forward slash
+        // - the path is a directory
+
         unimplemented!()
     }
 
@@ -236,6 +249,15 @@ impl Service {
             .map_or(path.to_string(), |rule| rule.target().to_string());
 
         debug!("Resolved path after rewrites: {path}");
+
+        // If we have a forward slash, an empty path or the path is a directory, we will try to resolve to the index file
+
+        // let path = if path.trim_matches('/').is_empty() {
+        //     debug!("Path is empty, resolving to index file");
+        //     site.index_file()
+        // } else {
+        //     path
+        // };
 
         // TODO: handle rewrites
 
