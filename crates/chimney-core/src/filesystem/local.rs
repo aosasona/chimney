@@ -69,4 +69,36 @@ impl Filesystem for LocalFS {
     fn stat(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError> {
         AbstractFile::from_disk_path(path)
     }
+
+    fn exists(&self, path: PathBuf) -> Result<bool, FilesystemError> {
+        let exists = path.exists();
+        Ok(exists)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_local_fs_new() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let fs = LocalFS::new(temp_dir.path().to_path_buf()).unwrap();
+        assert!(fs.path().exists());
+    }
+
+    #[test]
+    fn test_local_fs_read_dir() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let fs = LocalFS::new(temp_dir.path().to_path_buf()).unwrap();
+        fs.read_dir(temp_dir.path().to_path_buf()).unwrap();
+    }
+
+    #[test]
+    fn test_local_fs_list_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let fs = LocalFS::new(temp_dir.path().to_path_buf()).unwrap();
+        let files = fs.list_files(temp_dir.path().to_path_buf()).unwrap();
+        assert!(files.is_empty());
+    }
 }

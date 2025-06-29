@@ -105,6 +105,16 @@ impl Filesystem for MockFilesystem {
             message: "File not found in mock filesystem".to_string(),
         })
     }
+
+    fn exists(&self, path: std::path::PathBuf) -> Result<bool, super::FilesystemError> {
+        let path_str = path.to_string_lossy();
+        for (file_name, _) in MOCK_FILES {
+            if path_str == *file_name || path_str.starts_with(file_name) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }
 
 #[cfg(test)]
@@ -181,5 +191,17 @@ mod tests {
         } else {
             panic!("Expected MetadataError");
         }
+    }
+
+    #[test]
+    fn test_mock_filesystem_exists() {
+        let fs = MockFilesystem;
+        let path = std::path::PathBuf::from("index.html");
+        let exists = fs.exists(path).unwrap();
+        assert!(exists);
+
+        let non_existent_path = std::path::PathBuf::from("nonexistent.txt");
+        let exists = fs.exists(non_existent_path).unwrap();
+        assert!(!exists);
     }
 }
