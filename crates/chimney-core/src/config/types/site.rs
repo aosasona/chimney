@@ -163,6 +163,9 @@ pub struct Site {
     /// None for other sites)
     pub fallback: Option<String>,
 
+    /// The default index file to serve when a directory is requested
+    pub default_index_file: Option<String>,
+
     /// The HTTPS configuration for the site
     pub https_config: Option<Https>,
 
@@ -226,6 +229,13 @@ impl Site {
         }
 
         Ok(site)
+    }
+
+    /// Returns the index file to serve when a directory is requested
+    pub fn index_file(&self) -> String {
+        self.default_index_file
+            .clone()
+            .unwrap_or_else(|| "index.html".to_string())
     }
 }
 
