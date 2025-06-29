@@ -56,4 +56,7 @@ pub enum ServerError {
         value: String,
         message: String,
     },
+
+    #[error("No configured site found for domain `{host}`")]
+    SiteNotFound { host: String },
 }
