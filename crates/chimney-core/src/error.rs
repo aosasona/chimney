@@ -1,6 +1,8 @@
 use std::io::Error as StdError;
 use thiserror::Error;
 
+use crate::filesystem::FilesystemError;
+
 #[derive(Error, Debug)]
 pub enum ChimneyError {
     #[error("Error in `{field}`: {message}")]
@@ -24,6 +26,9 @@ pub enum ChimneyError {
 
 #[derive(Error, Debug)]
 pub enum ServerError {
+    #[error("{0}")]
+    FilesystemError(#[from] FilesystemError),
+
     #[error("Failed to parse raw address `{address}`: {message}")]
     InvalidRawSocketAddress { address: String, message: String },
 

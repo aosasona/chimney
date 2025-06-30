@@ -176,18 +176,39 @@ impl Service {
         &self,
         route: &str,
         site: &Site,
-    ) -> Result<String, crate::error::ServerError> {
+    ) -> Result<Option<String>, crate::error::ServerError> {
         let route = with_leading_slash!(route);
         debug!("Resolving file from route: {route}");
 
         let config = self.config.read().await;
+        let path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
 
-        let _path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
+        // We need to make sure what we are dealing with even exists
+        if !self
+            .filesystem
+            .exists(path.clone())
+            .map_err(ServerError::FilesystemError)?
+        {
+            debug!("Path does not exist: {path:?}");
+            return Ok(None);
+        }
+
+        let stat = self.filesystem.stat(path.join(&route)).map_err(|e| {
+            debug!("Failed to stat path: {route}, error: {e}");
+            ServerError::FilesystemError(e)
+        })?;
 
         // We need to first normalize to an index file if any of the following conditions are met:
         // - the path is empty
         // - the path is a forward slash
         // - the path is a directory
+        let path = if stat.is_directory() || route.trim_matches('/').is_empty() {
+            debug!("Path is a directory or empty, resolving to index file");
+            let index_file = site.index_file();
+            path.join(index_file).to_string_lossy().to_string()
+        } else {
+            path.join(route).to_string_lossy().to_string()
+        };
 
         unimplemented!()
     }
