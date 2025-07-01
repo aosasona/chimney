@@ -13,6 +13,7 @@ use tokio::sync::RwLock;
 
 use crate::config::{RedirectRule, Site};
 use crate::error::ServerError;
+use crate::filesystem::FilesystemError;
 use crate::server::mimetype;
 use crate::with_leading_slash;
 
@@ -179,16 +180,32 @@ impl Service {
         route: &str,
         site: &Site,
     ) -> Result<Option<PathBuf>, crate::error::ServerError> {
-        let route = with_leading_slash!(route);
-        debug!("Resolving file from route: {route}");
+        let route = route.trim_matches('/').to_string();
 
         let config = self.config.read().await;
         let path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
+        debug!(
+            "Base path for site {}: {}",
+            site.name,
+            path.to_string_lossy()
+        );
+        debug!(
+            "Resolving file for site: {}, path: {}",
+            site.name,
+            path.join(&route).to_string_lossy()
+        );
 
-        let stat = self.filesystem.stat(path.join(&route)).map_err(|e| {
-            debug!("Failed to stat path: {route}, error: {e}");
-            ServerError::FilesystemError(e)
-        })?;
+        // Check the stat of the path to determine if it exists and what type it is
+        let stat = match self.filesystem.stat(path.join(&route)) {
+            Ok(stat) => stat,
+            Err(FilesystemError::NotFound(_)) => {
+                return Ok(None);
+            }
+            Err(e) => {
+                debug!("Failed to stat path: {route}, error: {e}");
+                return Err(ServerError::FilesystemError(e));
+            }
+        };
 
         // We need to first normalize to an index file if any of the following conditions are met:
         // - the path is empty
@@ -196,15 +213,20 @@ impl Service {
         // - the path is a directory
         let path = if stat.is_directory() || route.trim_matches('/').is_empty() {
             debug!("Path is a directory or empty, resolving to index file");
+            // We will resolve to the index file of the site, if it exists.
             let index_file = site.index_file();
-            path.join(index_file).to_string_lossy().to_string()
+            if self.filesystem.exists(index_file.clone().into()).is_ok() {
+                path.join(index_file).to_string_lossy().to_string()
+            } else {
+                return Ok(None);
+            }
         } else {
             path.join(route).to_string_lossy().to_string()
         };
 
         debug!("Resolved file path: {path}");
 
-        // We need to make sure what we are dealing with even exists
+        // We need to make sure what we are dealing with even exists before we return it.
         if !self
             .filesystem
             .exists(path.clone().into())
@@ -283,7 +305,7 @@ impl Service {
                 self.respond_with_file(file, site)
             }
             None => {
-                debug!("File not found for path: {path}");
+                info!("File not found for route: {}", req.uri().path());
                 Ok(self.respond(Status::NotFound))
             }
         }

@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", function () {
 	});
 
 	document.querySelector("#minus").addEventListener("click", function () {
-		counter.textContent = parseInt(counter.textContent) - 1;
+		if (parseInt(counter.textContent) > 0) {
+			counter.textContent = parseInt(counter.textContent) - 1;
+		}
 	});
 });

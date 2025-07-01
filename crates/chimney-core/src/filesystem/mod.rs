@@ -23,6 +23,9 @@ pub enum FilesystemError {
     #[error("Failed to get file metadata for `{path}`: {message}")]
     MetadataError { path: PathBuf, message: String },
 
+    #[error("File or directory `{0}` does not exist")]
+    NotFound(PathBuf),
+
     #[error("Generic error: {0}")]
     GenericError(String),
 }
@@ -122,9 +125,12 @@ impl AbstractFile {
 
     /// Creates a new `AbstractFile` from a path and content, reading the file metadata.
     pub fn from_disk_path(path: PathBuf) -> Result<Self, FilesystemError> {
-        let metadata = std::fs::metadata(&path).map_err(|e| FilesystemError::MetadataError {
-            path: path.clone(),
-            message: e.to_string(),
+        let metadata = std::fs::metadata(&path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => FilesystemError::NotFound(path.clone()),
+            _ => FilesystemError::MetadataError {
+                path: path.clone(),
+                message: e.to_string(),
+            },
         })?;
 
         let file_type = if metadata.is_dir() {
