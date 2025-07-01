@@ -244,6 +244,9 @@ impl Service {
         &self,
         req: Request<IncomingBody>,
     ) -> Result<Response<Full<Bytes>>, ServerError> {
+        #[cfg(debug_assertions)]
+        let start = std::time::Instant::now();
+
         use chrono::prelude::*;
 
         info!(
@@ -302,7 +305,20 @@ impl Service {
         match file {
             Some(file) => {
                 debug!("Resolved file: {file:?}");
-                self.respond_with_file(file, site)
+                let response = self.respond_with_file(file, site);
+
+                #[cfg(debug_assertions)]
+                {
+                    let elapsed = start.elapsed();
+                    debug!(
+                        "Handled request for {} in {:?} with response: {:?}",
+                        req.uri().path(),
+                        elapsed,
+                        response.as_ref().map(|r| r.status())
+                    );
+                }
+
+                response
             }
             None => {
                 info!("File not found for route: {}", req.uri().path());
