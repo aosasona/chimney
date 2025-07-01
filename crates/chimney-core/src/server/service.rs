@@ -1,17 +1,19 @@
 use http_body_util::Full;
 use hyper::body::Bytes;
-use hyper::header::{self, HeaderValue};
+use hyper::header::{self, HeaderName, HeaderValue};
 use hyper::service::Service as HyperService;
 use hyper::{HeaderMap, StatusCode};
 use hyper::{Request, Response, body::Incoming as IncomingBody};
 use log::{debug, info, trace};
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::config::{RedirectRule, Site};
 use crate::error::ServerError;
+use crate::server::mimetype;
 use crate::with_leading_slash;
 
 pub struct DetectedHost {
@@ -176,22 +178,12 @@ impl Service {
         &self,
         route: &str,
         site: &Site,
-    ) -> Result<Option<String>, crate::error::ServerError> {
+    ) -> Result<Option<PathBuf>, crate::error::ServerError> {
         let route = with_leading_slash!(route);
         debug!("Resolving file from route: {route}");
 
         let config = self.config.read().await;
         let path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
-
-        // We need to make sure what we are dealing with even exists
-        if !self
-            .filesystem
-            .exists(path.clone())
-            .map_err(ServerError::FilesystemError)?
-        {
-            debug!("Path does not exist: {path:?}");
-            return Ok(None);
-        }
 
         let stat = self.filesystem.stat(path.join(&route)).map_err(|e| {
             debug!("Failed to stat path: {route}, error: {e}");
@@ -210,7 +202,19 @@ impl Service {
             path.join(route).to_string_lossy().to_string()
         };
 
-        unimplemented!()
+        debug!("Resolved file path: {path}");
+
+        // We need to make sure what we are dealing with even exists
+        if !self
+            .filesystem
+            .exists(path.clone().into())
+            .map_err(ServerError::FilesystemError)?
+        {
+            debug!("Path does not exist: {path:?}");
+            return Ok(None);
+        }
+
+        Ok(Some(path.into()))
     }
 
     /// The main function that handles incoming requests.
@@ -271,18 +275,18 @@ impl Service {
 
         debug!("Resolved path after rewrites: {path}");
 
-        // If we have a forward slash, an empty path or the path is a directory, we will try to resolve to the index file
+        let file = self.resolve_file_from_route(&path, site).await?;
 
-        // let path = if path.trim_matches('/').is_empty() {
-        //     debug!("Path is empty, resolving to index file");
-        //     site.index_file()
-        // } else {
-        //     path
-        // };
-
-        // TODO: handle rewrites
-
-        unimplemented!()
+        match file {
+            Some(file) => {
+                debug!("Resolved file: {file:?}");
+                self.respond_with_file(file, site)
+            }
+            None => {
+                debug!("File not found for path: {path}");
+                Ok(self.respond(Status::NotFound))
+            }
+        }
     }
 
     /// Handles errors that occur during request processing.
@@ -415,6 +419,36 @@ impl Service {
                 response
             }
         }
+    }
+
+    /// Responds with a file from the filesystem, setting the appropriate headers.
+    pub fn respond_with_file(
+        &self,
+        file: PathBuf,
+        site: &Site,
+    ) -> Result<Response<Full<Bytes>>, ServerError> {
+        let mime_type = mimetype::from_path(file.clone());
+        let content = self
+            .filesystem
+            .read_file(file)
+            .map_err(ServerError::FilesystemError)?;
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_str(mime_type).unwrap(),
+        );
+
+        site.response_headers.iter().for_each(|(key, value)| {
+            if let Ok(header_name) = HeaderName::from_str(key) {
+                headers.insert(header_name, HeaderValue::from_str(value).unwrap());
+            }
+        });
+
+        Ok(self.respond(Status::Ok {
+            body: content.text().to_string(),
+            headers,
+        }))
     }
 
     /// Redirects to the specified target URL or path.
