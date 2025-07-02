@@ -137,7 +137,7 @@ impl Server {
         let service = self.service.clone();
 
         // Handle the TCP stream in a separate task
-        tokio::task::spawn(async move {
+        tokio::spawn(async move {
             if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
                 error!("Failed to serve connection: {err:?}");
             }

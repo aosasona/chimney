@@ -54,6 +54,7 @@ impl Service {
         &self,
         headers: &HeaderMap<HeaderValue>,
     ) -> Result<DetectedHost, crate::error::ServerError> {
+        debug!("Acquiring configuration for cached host resolution");
         let config = self.config.read().await;
 
         let resolved_header_name = config
@@ -88,6 +89,7 @@ impl Service {
         &self,
         headers: &HeaderMap<HeaderValue>,
     ) -> Result<DetectedHost, crate::error::ServerError> {
+        debug!("Acquiring configuration for host detection");
         let config = self.config.read().await;
         let target_headers = config.host_detection.target_headers();
         trace!(
@@ -137,6 +139,7 @@ impl Service {
         #[cfg(debug_assertions)]
         let start = std::time::Instant::now();
 
+        debug!("Acquiring configuration for host resolution");
         let config = self.config.read().await;
 
         // If we have a cached resolved host header, we can use that for our lookup.
@@ -182,6 +185,7 @@ impl Service {
     ) -> Result<Option<PathBuf>, crate::error::ServerError> {
         let route = route.trim_matches('/').to_string();
 
+        debug!("Acquiring configuration for site: {}", site.name);
         let config = self.config.read().await;
         let path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
         debug!(
@@ -269,6 +273,7 @@ impl Service {
 
         // For now, we will only cache the resolved header if we are in auto-detect mode.
         if resolved.is_auto {
+            debug!("Acquiring configuration for caching target header");
             let mut config = self.config.write().await;
             config.set_resolved_host_header(resolved.header.clone());
             debug!("Cached target header: {}", resolved.header);
@@ -276,6 +281,7 @@ impl Service {
             debug!("Not caching target header, auto-detect mode is disabled");
         }
 
+        debug!("Acquiring configuration for site resolution");
         let config = self.config.read().await;
         let site = config
             .sites
