@@ -7,17 +7,17 @@ use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
 use log::{debug, error};
 
-use crate::error::ServerError;
+use crate::{config::ConfigSender, error::ServerError};
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::{Notify, RwLock},
+    sync::Notify,
 };
 
 const SHUTDOWN_WAIT_PERIOD: u64 = 15; // seconds
 
 pub struct Server {
     /// The configuration for the server
-    config: Arc<RwLock<crate::config::Config>>,
+    config: ConfigSender,
 
     /// The shutdown signal for the server
     signal: Arc<Notify>,
@@ -30,10 +30,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(
-        filesystem: Arc<dyn crate::filesystem::Filesystem>,
-        config: Arc<RwLock<crate::config::Config>>,
-    ) -> Self {
+    pub fn new(filesystem: Arc<dyn crate::filesystem::Filesystem>, config: ConfigSender) -> Self {
         debug!("Creating a new Chimney server instance");
 
         let service = service::Service::new(filesystem.clone(), config.clone());
@@ -73,7 +70,7 @@ impl Server {
 
     /// Get the socket address for the server based on the configuration.
     pub async fn get_socket_address(&self) -> Result<SocketAddr, ServerError> {
-        let config = self.config.read().await;
+        let config = self.config.borrow();
         // Prevent the use of possibly reserved ports
         if config.port <= 1024 {
             return Err(ServerError::InvalidPortRange { port: config.port });

@@ -9,9 +9,9 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::watch::Sender;
 
-use crate::config::{RedirectRule, Site};
+use crate::config::{Config, ConfigSender, RedirectRule, Site};
 use crate::error::ServerError;
 use crate::filesystem::FilesystemError;
 use crate::server::mimetype;
@@ -37,14 +37,11 @@ pub struct Service {
     filesystem: Arc<dyn crate::filesystem::Filesystem>,
 
     /// The configuration for the server
-    config: Arc<RwLock<crate::config::Config>>,
+    config: ConfigSender,
 }
 
 impl Service {
-    pub fn new(
-        filesystem: Arc<dyn crate::filesystem::Filesystem>,
-        config: Arc<RwLock<crate::config::Config>>,
-    ) -> Self {
+    pub fn new(filesystem: Arc<dyn crate::filesystem::Filesystem>, config: ConfigSender) -> Self {
         debug!("Creating a new Resolver instance");
         Service { filesystem, config }
     }
