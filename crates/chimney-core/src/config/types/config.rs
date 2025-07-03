@@ -2,11 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr},
     path::Path,
+    sync::Arc,
 };
 
 use crate::{config::Format, error::ChimneyError};
 
 use super::{LogLevel, Sites};
+
+pub type ConfigSender = tokio::sync::watch::Sender<Arc<Config>>;
 
 /// Represents the host detection options
 /// This is used to determine how the target host i.e. domain or IP address is detected from the
@@ -158,3 +161,5 @@ impl Config {
         self.resolved_host_header = Some(header);
     }
 }
+
+// TODO: impelment events
