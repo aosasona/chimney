@@ -5,7 +5,6 @@ use chimney::{
     filesystem,
     server::Server,
 };
-use tokio::sync::RwLock;
 
 macro_rules! test_socket_address {
     ($config:expr) => {
@@ -55,7 +54,7 @@ fn mock_config() -> Config {
 
 fn mock_server(config: Config) -> Server {
     let fs = Arc::new(filesystem::mock::MockFilesystem);
-    let config = Arc::new(RwLock::new(config));
+    let config = Arc::new(config);
     Server::new(fs, config)
 }
 
