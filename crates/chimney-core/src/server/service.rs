@@ -9,9 +9,8 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::watch::Sender;
 
-use crate::config::{Config, ConfigSender, RedirectRule, Site};
+use crate::config::{ConfigHandle, RedirectRule, Site};
 use crate::error::ServerError;
 use crate::filesystem::FilesystemError;
 use crate::server::mimetype;
@@ -37,11 +36,11 @@ pub struct Service {
     filesystem: Arc<dyn crate::filesystem::Filesystem>,
 
     /// The configuration for the server
-    config: ConfigSender,
+    config: ConfigHandle,
 }
 
 impl Service {
-    pub fn new(filesystem: Arc<dyn crate::filesystem::Filesystem>, config: ConfigSender) -> Self {
+    pub fn new(filesystem: Arc<dyn crate::filesystem::Filesystem>, config: ConfigHandle) -> Self {
         debug!("Creating a new Resolver instance");
         Service { filesystem, config }
     }
@@ -51,8 +50,7 @@ impl Service {
         &self,
         headers: &HeaderMap<HeaderValue>,
     ) -> Result<DetectedHost, crate::error::ServerError> {
-        debug!("Acquiring configuration for cached host resolution");
-        let config = self.config.read().await;
+        let config = self.config.receiver.borrow().clone();
 
         let resolved_header_name = config
             .resolved_host_header()
@@ -86,8 +84,7 @@ impl Service {
         &self,
         headers: &HeaderMap<HeaderValue>,
     ) -> Result<DetectedHost, crate::error::ServerError> {
-        debug!("Acquiring configuration for host detection");
-        let config = self.config.read().await;
+        let config = self.config.get();
         let target_headers = config.host_detection.target_headers();
         trace!(
             "Using host detection strategy: {:?}, target headers: {:?}",
@@ -136,8 +133,7 @@ impl Service {
         #[cfg(debug_assertions)]
         let start = std::time::Instant::now();
 
-        debug!("Acquiring configuration for host resolution");
-        let config = self.config.read().await;
+        let config = self.config.get();
 
         // If we have a cached resolved host header, we can use that for our lookup.
         if config.has_resolved_host_header() {
@@ -181,9 +177,8 @@ impl Service {
         site: &Site,
     ) -> Result<Option<PathBuf>, crate::error::ServerError> {
         let route = route.trim_matches('/').to_string();
+        let config = self.config.get();
 
-        debug!("Acquiring configuration for site: {}", site.name);
-        let config = self.config.read().await;
         let path = PathBuf::from(config.sites_directory.clone()).join(&site.name);
         debug!(
             "Base path for site {}: {}",
@@ -248,6 +243,8 @@ impl Service {
         #[cfg(debug_assertions)]
         let start = std::time::Instant::now();
 
+        let config = self.config.get();
+
         use chrono::prelude::*;
 
         info!(
@@ -270,16 +267,21 @@ impl Service {
 
         // For now, we will only cache the resolved header if we are in auto-detect mode.
         if resolved.is_auto {
-            debug!("Acquiring configuration for caching target header");
-            let mut config = self.config.write().await;
-            config.set_resolved_host_header(resolved.header.clone());
+            debug!("Acquiring configuration for writing resolved host header");
+
+            let mut new_config = (*config).clone();
+            new_config.set_resolved_host_header(resolved.header.clone());
+
+            if let Err(e) = self.config.set(new_config) {
+                debug!("Failed to update configuration with resolved host header: {e}");
+                return Err(e);
+            }
+
             debug!("Cached target header: {}", resolved.header);
         } else {
             debug!("Not caching target header, auto-detect mode is disabled");
         }
 
-        debug!("Acquiring configuration for site resolution");
-        let config = self.config.read().await;
         let site = config
             .sites
             .find_by_hostname(&resolved.host)

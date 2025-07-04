@@ -5,11 +5,43 @@ use std::{
     sync::Arc,
 };
 
-use crate::{config::Format, error::ChimneyError};
+use crate::{
+    config::Format,
+    error::{ChimneyError, ServerError},
+};
 
 use super::{LogLevel, Sites};
 
 pub type ConfigSender = tokio::sync::watch::Sender<Arc<Config>>;
+pub type ConfigReceiver = tokio::sync::watch::Receiver<Arc<Config>>;
+
+#[derive(Debug, Clone)]
+pub struct ConfigHandle {
+    /// The sender for the configuration
+    pub sender: ConfigSender,
+
+    /// The receiver for the configuration
+    pub receiver: ConfigReceiver,
+}
+
+impl ConfigHandle {
+    /// Creates a new configuration handle with the given sender and receiver
+    pub fn new(sender: ConfigSender, receiver: ConfigReceiver) -> Self {
+        ConfigHandle { sender, receiver }
+    }
+
+    /// Returns a clone of the current configuration
+    pub fn get(&self) -> Arc<Config> {
+        self.receiver.borrow().clone()
+    }
+
+    pub fn set(&self, config: Config) -> Result<(), ServerError> {
+        // Send the new configuration to the receiver
+        self.sender
+            .send(Arc::new(config))
+            .map_err(ServerError::ConfigUpdateFailed)
+    }
+}
 
 /// Represents the host detection options
 /// This is used to determine how the target host i.e. domain or IP address is detected from the

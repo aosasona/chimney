@@ -1,7 +1,8 @@
-use std::io::Error as StdError;
+use std::{io::Error as StdError, sync::Arc};
 use thiserror::Error;
+use tokio::sync::watch::error::SendError;
 
-use crate::filesystem::FilesystemError;
+use crate::{config::Config, filesystem::FilesystemError};
 
 #[derive(Error, Debug)]
 pub enum ChimneyError {
@@ -64,4 +65,7 @@ pub enum ServerError {
 
     #[error("No configured site found for domain `{host}`")]
     SiteNotFound { host: String },
+
+    #[error("Failed to update configuration: {0}")]
+    ConfigUpdateFailed(#[from] SendError<Arc<Config>>),
 }
