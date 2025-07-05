@@ -77,10 +77,6 @@ impl Server {
     /// Get the socket address for the server based on the configuration.
     pub async fn get_socket_address(&self) -> Result<SocketAddr, ServerError> {
         let config = self.config_handle.get();
-        // Prevent the use of possibly reserved ports
-        if config.port <= 1024 {
-            return Err(ServerError::InvalidPortRange { port: config.port });
-        }
 
         let raw_addr = format!("{}:{}", config.host, config.port);
         debug!("Parsing socket address: {raw_addr}");
