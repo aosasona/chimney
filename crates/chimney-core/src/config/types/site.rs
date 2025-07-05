@@ -240,6 +240,74 @@ impl Site {
 }
 
 impl Site {
+    /// Sets the root directory for the site
+    pub fn set_root_directory(&mut self, root: String) {
+        debug!("Setting root directory for site {}: {}", self.name, root);
+        self.root = root;
+    }
+
+    /// Adds a domain name to the site
+    pub fn add_domain_name(&mut self, domain: String) {
+        debug!("Adding domain name '{}' to site '{}'", domain, self.name);
+        if !self.domain_names.contains(&domain) {
+            self.domain_names.push(domain);
+        } else {
+            debug!(
+                "Domain '{}' already exists for site '{}'",
+                domain, self.name
+            );
+        }
+    }
+
+    /// Adds a redirect rule to the site
+    ///
+    /// NOTE: this will not prepend a leading slash to the matcher, so it is up to the caller to ensure that the matcher is properly formatted as the matcher could be a regex instead of a simple route
+    pub fn add_redirect_rule(&mut self, matcher: String, rule: RedirectRule) {
+        debug!(
+            "Adding redirect rule for path '{}' to site '{}': {:?}",
+            matcher, self.name, rule
+        );
+        self.redirects.insert(matcher, rule);
+    }
+
+    /// Adds a rewrite rule to the site
+    ///
+    /// NOTE: this will not prepend a leading slash to the matcher, so it is up to the caller to ensure that the matcher is properly formatted as the matcher could be a regex instead of a simple route
+    pub fn add_rewrite_rule(&mut self, matcher: String, rule: RewriteRule) {
+        debug!(
+            "Adding rewrite rule for path '{}' to site '{}': {:?}",
+            matcher, self.name, rule
+        );
+        self.rewrites.insert(matcher, rule);
+    }
+
+    /// Adds a response header to the site
+    pub fn add_response_header(&mut self, header: String, value: String) {
+        debug!(
+            "Adding response header '{}' with value '{}' to site '{}'",
+            header, value, self.name
+        );
+        self.response_headers.insert(header, value);
+    }
+
+    /// Removes a response header from the site
+    pub fn remove_response_header(&mut self, header: &str) {
+        debug!(
+            "Removing response header '{}' from site '{}'",
+            header, self.name
+        );
+        if !self.response_headers.contains_key(header) {
+            debug!(
+                "Response header '{}' not found in site '{}', skipping removal",
+                header, self.name
+            );
+            return;
+        }
+        self.response_headers.remove(header);
+    }
+}
+
+impl Site {
     /// Finds a redirect rule for a given path
     pub fn find_redirect_rule(&self, path: &str) -> Option<RedirectRule> {
         debug!("Finding redirect for path: {path}");
