@@ -359,22 +359,6 @@ impl Service {
     }
 }
 
-impl HyperService<Request<IncomingBody>> for Service {
-    type Response = Response<Full<Bytes>>;
-    type Error = ServerError;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
-
-    fn call(&self, req: Request<IncomingBody>) -> Self::Future {
-        let service = self.clone();
-        Box::pin(async move {
-            match service.handle_request(req).await {
-                Ok(response) => Ok(response),
-                Err(e) => Ok(service.handle_error(e)),
-            }
-        })
-    }
-}
-
 pub enum Status {
     Ok {
         /// The body of the response
@@ -523,5 +507,21 @@ impl Service {
         Ok(self.respond(Status::Redirect {
             target: rule.target().to_string(),
         }))
+    }
+}
+
+impl HyperService<Request<IncomingBody>> for Service {
+    type Response = Response<Full<Bytes>>;
+    type Error = ServerError;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn call(&self, req: Request<IncomingBody>) -> Self::Future {
+        let service = self.clone();
+        Box::pin(async move {
+            match service.handle_request(req).await {
+                Ok(response) => Ok(response),
+                Err(e) => Ok(service.handle_error(e)),
+            }
+        })
     }
 }
