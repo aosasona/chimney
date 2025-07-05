@@ -53,6 +53,7 @@ pub fn from_extension(extension: &str) -> &'static str {
         "js" | "mjs" => "text/javascript",
         "json" => "application/json",
         "jsonld" => "application/ld+json",
+        "jxl" => "image/jxl",
         "mid" | "midi" => "audio/midi",
         "mht" | "mhtml" | "nws" => "message/rfc822",
         "mp3" => "audio/mpeg",
