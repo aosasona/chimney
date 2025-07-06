@@ -1,0 +1,4 @@
+root = "."
+domain_names = ["mixed.test"]
+fallback_file = "404.html"
+default_index_file = "main.html"

@@ -1,0 +1,40 @@
+# TODO: cleanup
+[tools]
+rust = { version = "1.88.0" }
+jq = { version = "1.8.0" }
+
+[env]
+_.source = "./version.sh"
+
+[tasks."docker:arm"]
+run = '''
+docker build \
+  --build-arg ARCH=aarch64 \
+  --platform linux/arm64 \
+  -t trulyao/chimney:${VERSION}-arm64 \
+  .
+'''
+
+[tasks."docker:x86"]
+run = '''
+docker build \
+  --build-arg ARCH=x86_64 \
+  --platform linux/amd64 \
+  -t trulyao/chimney:${VERSION}-amd64 \
+  .
+'''
+
+[tasks."docker:publish"]
+depends = ["docker:arm", "docker:x86"]
+run = '''
+docker manifest create trulyao/chimney:${VERSION} \
+  trulyao/chimney:${VERSION}-arm64 \
+  trulyao/chimney:${VERSION}-amd64 &&
+docker manifest annotate trulyao/chimney:${VERSION} trulyao/chimney:${VERSION}-arm64 --arch arm64 &&
+docker manifest annotate trulyao/chimney:${VERSION} trulyao/chimney:${VERSION}-amd64 --arch amd64 &&
+docker manifest push trulyao/chimney:${VERSION} &&
+docker manifest create trulyao/chimney:latest \
+  trulyao/chimney:${VERSION}-arm64 \
+  trulyao/chimney:${VERSION}-amd64 &&
+docker manifest push trulyao/chimney:latest
+'''

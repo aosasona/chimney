@@ -1,0 +1,13 @@
+[package]
+name = "chimney-cli"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+chimney = { path = "../chimney-core" }
+clap = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
+thiserror = { workspace = true }
