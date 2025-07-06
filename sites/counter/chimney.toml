@@ -1,0 +1,2 @@
+root = "."
+domain_names = ["counter.test"]

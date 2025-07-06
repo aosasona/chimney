@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use chimney::{
-    config::{self, Config, Format, LogLevel},
+    config::{self, Config, Format, LogLevel, Site},
     filesystem,
     server::Server,
 };
@@ -144,13 +144,74 @@ impl Cli {
             }
 
             let config_content = std::fs::read_to_string(&path).map_err(CliError::Read)?;
-            return config::toml::Toml::from(config_content.as_str())
+
+            let mut config = config::toml::Toml::from(config_content.as_str())
                 .parse()
-                .map_err(CliError::Chimney);
+                .map_err(CliError::Chimney)?;
+
+            self.load_sites_configurations(&mut config)?;
+
+            return Ok(config);
         }
 
         log::info!("No configuration file provided, using default configuration.");
         Ok(Config::default())
+    }
+
+    /// Load the configurations for sites not already defined in the Chimney configuration.
+    fn load_sites_configurations(&self, config: &mut Config) -> Result<(), error::CliError> {
+        let root = PathBuf::from(&config.sites_directory);
+        if !root.exists() {
+            log::warn!(
+                "Sites directory does not exist: {}, creating it.",
+                root.display()
+            );
+            return Ok(());
+        }
+
+        if !root.is_dir() {
+            return Err(CliError::Generic(format!(
+                "Sites directory is not a directory: {}",
+                root.display()
+            )));
+        }
+
+        let loaded_sites = config
+            .sites
+            .into_iter()
+            .map(|(name, _)| name.to_string())
+            .collect::<Vec<_>>();
+
+        for entry in std::fs::read_dir(&root).map_err(CliError::Read)? {
+            let entry = entry.map_err(CliError::Read)?;
+            let path = entry.path();
+            let site_name = entry.file_name().to_string_lossy().to_string();
+
+            // Skip if the entry is not a directory or is already defined in the config
+            if !path.is_dir() || loaded_sites.contains(&site_name) {
+                continue;
+            }
+
+            // We need to read whatever config file they have as a Site
+            let config_file = path.join("chimney.toml");
+            if !config_file.exists() {
+                log::warn!("No Chimney configuration file found for site: {site_name}, skipping.");
+                continue;
+            }
+
+            let config_content = std::fs::read_to_string(&config_file).map_err(CliError::Read)?;
+            let mut site_config = Site::from_string(site_name.clone(), &config_content)?;
+            let site_root = path
+                .canonicalize()
+                .map_err(|e| CliError::Generic(format!("Failed to canonicalize site path: {e}")))?;
+
+            // Now we need to add the site configuration to the main Chimney config
+            log::info!("Adding new site configuration for: {site_name}");
+            site_config.set_root_directory(site_root.to_string_lossy().to_string());
+            config.sites.add(site_config)?;
+        }
+
+        Ok(())
     }
 
     /// Generate a default Chimney configuration file in the specified target directory.
