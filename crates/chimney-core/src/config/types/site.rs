@@ -161,9 +161,11 @@ pub struct Site {
 
     /// The file to fallback to if no other file is found (default: "index.html" for SPAs and
     /// None for other sites)
-    pub fallback: Option<String>,
+    pub fallback_file: Option<String>,
 
     /// The default index file to serve when a directory is requested
+    ///
+    /// For example, if a request is made to `/`, the server will look for this file in the root directory. If it was made to `/about/`, it will look for this file in the `/about/` directory.
     pub default_index_file: Option<String>,
 
     /// The HTTPS configuration for the site

@@ -208,13 +208,20 @@ impl Service {
         // - the path is a forward slash
         // - the path is a directory
         let path = if stat.is_directory() || route.trim_matches('/').is_empty() {
+            debug!("Attaching directory to path: {route}");
+            let path = path.join(&route);
+
             debug!("Path is a directory or empty, resolving to index file");
             // We will resolve to the index file of the site, if it exists.
-            let index_file = site.index_file();
-            if self.filesystem.exists(index_file.clone().into()).is_ok() {
-                path.join(index_file).to_string_lossy().to_string()
-            } else {
-                return Ok(None);
+            let dir_index_file = path.join(site.index_file());
+            debug!(
+                "Resolving to index file in directory: {}",
+                dir_index_file.to_string_lossy()
+            );
+
+            match self.filesystem.exists(dir_index_file.clone()) {
+                Ok(true) => dir_index_file.to_string_lossy().to_string(),
+                _ => return Ok(None),
             }
         } else {
             path.join(route).to_string_lossy().to_string()
@@ -327,6 +334,24 @@ impl Service {
             }
             None => {
                 info!("File not found for route: {}", req.uri().path());
+
+                // If there is a fallback file configured, we will try to serve that instead.
+                if let Some(fallback) = &site.fallback_file {
+                    debug!("Serving fallback file: {fallback}");
+                    let fallback_path = PathBuf::from(&config.sites_directory)
+                        .join(&site.name)
+                        .join(fallback);
+
+                    debug!(
+                        "Checking for fallback file at: {}",
+                        fallback_path.to_string_lossy()
+                    );
+
+                    if let Ok(true) = self.filesystem.exists(fallback_path.clone()) {
+                        return self.respond_with_file(fallback_path, site);
+                    }
+                }
+
                 Ok(self.respond(Status::NotFound))
             }
         }
