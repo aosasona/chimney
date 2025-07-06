@@ -1,0 +1,12 @@
+[tools]
+rust = { version = "1.88.0" }
+
+[tasks."docker:arm"]
+run = [
+	"docker build -t trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') --build-arg ARCH=aarch64 --platform linux/arm64 .",
+]
+
+[tasks."docker:x86"]
+run = [
+	"docker build -t trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') --build-arg ARCH=x86_64 --platform linux/amd64 .",
+]
