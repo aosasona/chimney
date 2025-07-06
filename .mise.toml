@@ -10,3 +10,11 @@ run = [
 run = [
 	"docker build -t trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') --build-arg ARCH=x86_64 --platform linux/amd64 .",
 ]
+
+[tasks."docker:publish"]
+depends = ["docker:arm", "docker:x86"]
+run = [
+	"docker push trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')",
+	"docker tag trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') trulyao/chimney:latest",
+	"docker push trulyao/chimney:latest",
+]
