@@ -77,7 +77,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
     [sites.example]
     root = "./public"
     domain_names = ["example.com"]
-    fallback = "index.html"
+    fallback_file = "index.html"
     https_config = { enabled = true, cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
     "#;
 
@@ -108,7 +108,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
     assert_eq!(site.name, "example");
     assert_eq!(site.root, "./public");
     assert_eq!(site.domain_names, vec!["example.com"]);
-    assert_eq!(site.fallback, Some("index.html".to_string()));
+    assert_eq!(site.fallback_file, Some("index.html".to_string()));
     assert!(
         site.https_config.is_some(),
         "Expected HTTPS config to be present"
@@ -127,7 +127,7 @@ pub fn parse_standalone_site_config_with_manual_https() {
     let input = r#"
     root = "./public"
     domain_names = ["example.com"]
-    fallback = "index.html"
+    fallback_file = "index.html"
     https_config = { enabled = true, cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
     "#;
 
@@ -137,7 +137,7 @@ pub fn parse_standalone_site_config_with_manual_https() {
     assert_eq!(site.name, "example");
     assert_eq!(site.root, "./public");
     assert_eq!(site.domain_names, vec!["example.com"]);
-    assert_eq!(site.fallback, Some("index.html".to_string()));
+    assert_eq!(site.fallback_file, Some("index.html".to_string()));
     assert!(
         site.https_config.is_some(),
         "Expected HTTPS config to be present"
