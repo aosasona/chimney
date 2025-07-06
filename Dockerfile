@@ -48,7 +48,7 @@ ENV PATH="/bin/chimney:$PATH"
 
 ENTRYPOINT ["chimney"]
 
-CMD ["serve", "-c", "/etc/chimney/config.toml"]
+CMD ["serve"]
 
 LABEL org.opencontainers.image.title="Chimney"
 
