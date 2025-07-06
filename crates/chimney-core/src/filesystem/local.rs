@@ -57,13 +57,12 @@ impl Filesystem for LocalFS {
     }
 
     fn read_file(&self, path: PathBuf) -> Result<Content, FilesystemError> {
-        let content =
-            std::fs::read_to_string(&path).map_err(|e| FilesystemError::ReadFileError {
-                path: path.clone(),
-                message: e.to_string(),
-            })?;
+        let bytes = std::fs::read(&path).map_err(|e| FilesystemError::ReadFileError {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
 
-        Ok(Content::new(content))
+        Ok(Content::new(bytes))
     }
 
     fn stat(&self, path: PathBuf) -> Result<AbstractFile, FilesystemError> {

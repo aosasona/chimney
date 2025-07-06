@@ -326,7 +326,7 @@ impl Service {
                         "Handled request for {} in {:?} with response: {:?}",
                         req.uri().path(),
                         elapsed,
-                        response.as_ref().map(|r| r.status())
+                        response.as_ref().map(|r| r.status()),
                     );
                 }
 
@@ -393,7 +393,7 @@ impl Service {
 pub enum Status {
     Ok {
         /// The body of the response
-        body: String,
+        body: Vec<u8>,
 
         /// The headers to include in the response
         headers: HeaderMap<HeaderValue>,
@@ -504,7 +504,7 @@ impl Service {
         });
 
         Ok(self.respond(Status::Ok {
-            body: content.text().to_string(),
+            body: content.bytes().to_vec(),
             headers,
         }))
     }

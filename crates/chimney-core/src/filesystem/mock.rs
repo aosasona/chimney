@@ -82,7 +82,7 @@ impl Filesystem for MockFilesystem {
         let path_str = path.to_string_lossy();
         for (file_name, content) in MOCK_FILES {
             if path_str.ends_with(file_name) || path_str == *file_name {
-                return Ok(super::Content::new(content.to_string()));
+                return Ok(super::Content::new(content.to_string().into()));
             }
         }
 

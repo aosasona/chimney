@@ -65,8 +65,8 @@ pub struct AbstractFile {
 /// This is designed as a separate struct to encapsulate the content and its size, for lazy loading the content of file as dictated by the concrete implementation of the `Filesystem` trait.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Content {
-    /// The content of the file as a string.
-    content: String,
+    /// The content of the file as a raw byte vector.
+    content: Vec<u8>,
 
     /// The size of the content in bytes.
     size: u64,
@@ -74,13 +74,13 @@ pub struct Content {
 
 impl Content {
     /// Creates a new `Content` from a string.
-    pub fn new(content: String) -> Self {
+    pub fn new(content: Vec<u8>) -> Self {
         let size = content.len() as u64;
         Self { content, size }
     }
 
-    /// Gets the content of the file.
-    pub fn text(&self) -> &str {
+    /// Returns the content as a byte slice.
+    pub fn bytes(&self) -> &[u8] {
         &self.content
     }
 
