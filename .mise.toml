@@ -1,20 +1,40 @@
+# TODO: cleanup
 [tools]
 rust = { version = "1.88.0" }
+jq = { version = "1.8.0" }
+
+[env]
+_.source = "./version.sh"
 
 [tasks."docker:arm"]
-run = [
-	"docker build -t trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') --build-arg ARCH=aarch64 --platform linux/arm64 .",
-]
+run = '''
+docker build \
+  --build-arg ARCH=aarch64 \
+  --platform linux/arm64 \
+  -t trulyao/chimney:${VERSION}-arm64 \
+  .
+'''
 
 [tasks."docker:x86"]
-run = [
-	"docker build -t trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') --build-arg ARCH=x86_64 --platform linux/amd64 .",
-]
+run = '''
+docker build \
+  --build-arg ARCH=x86_64 \
+  --platform linux/amd64 \
+  -t trulyao/chimney:${VERSION}-amd64 \
+  .
+'''
 
 [tasks."docker:publish"]
 depends = ["docker:arm", "docker:x86"]
-run = [
-	"docker push trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')",
-	"docker tag trulyao/chimney:$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version') trulyao/chimney:latest",
-	"docker push trulyao/chimney:latest",
-]
+run = '''
+docker manifest create trulyao/chimney:${VERSION} \
+  trulyao/chimney:${VERSION}-arm64 \
+  trulyao/chimney:${VERSION}-amd64 &&
+docker manifest annotate trulyao/chimney:${VERSION} trulyao/chimney:${VERSION}-arm64 --arch arm64 &&
+docker manifest annotate trulyao/chimney:${VERSION} trulyao/chimney:${VERSION}-amd64 --arch amd64 &&
+docker manifest push trulyao/chimney:${VERSION} &&
+docker manifest create trulyao/chimney:latest \
+  trulyao/chimney:${VERSION}-arm64 \
+  trulyao/chimney:${VERSION}-amd64 &&
+docker manifest push trulyao/chimney:latest
+'''
