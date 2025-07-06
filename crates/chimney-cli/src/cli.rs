@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use chimney::{
     config::{self, Config, Format, LogLevel, Site},
-    filesystem,
+    config_log_debug, config_log_warn, filesystem,
     server::Server,
 };
 use clap::{Parser, Subcommand};
@@ -74,29 +74,34 @@ impl Cli {
     }
 
     /// Set the log level for the application based on the CLI argument.
-    fn set_log_level(&self) {
-        // NOTE: this should ALWAYS override the log level set in the configuration file
-        let level = self
+    // NOTE: the global log level would ALWAYS override the log level set in the configuration file
+    fn set_log_level(&self, configured_log_level: Option<LogLevel>) {
+        let log_level = self
             .log_level
             .clone()
-            .unwrap_or_default()
+            .unwrap_or(configured_log_level.unwrap_or_default())
             .to_log_level_filter();
 
-        env_logger::Builder::new().filter_level(level).init();
+        env_logger::Builder::new().filter_level(log_level).init();
     }
 
     /// Execute the CLI command based on the parsed arguments.
     pub async fn execute(&self) -> Result<(), error::CliError> {
-        // Set the log level based on the CLI argument
-        self.set_log_level();
-
         match &self.command {
             Commands::Serve { config_path } => {
                 let config = self.load_config(config_path)?;
+
+                let config_log_level = config.log_level.clone();
+                self.set_log_level(config_log_level);
+
                 log::info!("Parsed configuration: {config:?}");
+
                 self.run_server(config).await
             }
-            Commands::Init { path, format } => self.generate_default_config(path.clone(), format),
+            Commands::Init { path, format } => {
+                self.set_log_level(None);
+                self.generate_default_config(path.clone(), format)
+            }
             Commands::Version => {
                 println!("Chimney CLI version: {}", env!("CARGO_PKG_VERSION"));
                 Ok(())
@@ -129,7 +134,11 @@ impl Cli {
                 .canonicalize()
                 .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {e}")))?;
 
-            log::info!("Loading configuration from: {}", path.display());
+            config_log_debug!(
+                "chimney_cli::cli",
+                "Loading configuration from: {}",
+                path.display()
+            );
 
             if !path.exists() {
                 return Err(CliError::Generic(format!(
@@ -154,7 +163,10 @@ impl Cli {
             return Ok(config);
         }
 
-        log::info!("No configuration file provided, using default configuration.");
+        config_log_debug!(
+            "chimney_cli::cli",
+            "No configuration file provided, using default configuration."
+        );
         Ok(Config::default())
     }
 
@@ -162,7 +174,8 @@ impl Cli {
     fn load_sites_configurations(&self, config: &mut Config) -> Result<(), error::CliError> {
         let root = PathBuf::from(&config.sites_directory);
         if !root.exists() {
-            log::warn!(
+            config_log_warn!(
+                "chimney_cli::cli",
                 "Sites directory does not exist: {}, creating it.",
                 root.display()
             );
@@ -195,7 +208,10 @@ impl Cli {
             // We need to read whatever config file they have as a Site
             let config_file = path.join("chimney.toml");
             if !config_file.exists() {
-                log::warn!("No Chimney configuration file found for site: {site_name}, skipping.");
+                config_log_warn!(
+                    "chimney_cli::cli",
+                    "No Chimney configuration file found for site: {site_name}, skipping."
+                );
                 continue;
             }
 
@@ -206,7 +222,10 @@ impl Cli {
                 .map_err(|e| CliError::Generic(format!("Failed to canonicalize site path: {e}")))?;
 
             // Now we need to add the site configuration to the main Chimney config
-            log::info!("Adding new site configuration for: {site_name}");
+            config_log_debug!(
+                "chimney_cli::cli",
+                "Adding new site configuration for: {site_name}"
+            );
             site_config.set_root_directory(site_root.to_string_lossy().to_string());
             config.sites.add(site_config)?;
         }
