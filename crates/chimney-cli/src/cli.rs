@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use chimney::{
     config::{self, Config, Format, LogLevel, Site},
-    filesystem,
+    config_log_debug, config_log_warn, filesystem,
     server::Server,
 };
 use clap::{Parser, Subcommand};
@@ -134,7 +134,11 @@ impl Cli {
                 .canonicalize()
                 .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {e}")))?;
 
-            log::info!("Loading configuration from: {}", path.display());
+            config_log_debug!(
+                "chimney_cli::cli",
+                "Loading configuration from: {}",
+                path.display()
+            );
 
             if !path.exists() {
                 return Err(CliError::Generic(format!(
@@ -159,7 +163,10 @@ impl Cli {
             return Ok(config);
         }
 
-        log::info!("No configuration file provided, using default configuration.");
+        config_log_debug!(
+            "chimney_cli::cli",
+            "No configuration file provided, using default configuration."
+        );
         Ok(Config::default())
     }
 
@@ -167,7 +174,8 @@ impl Cli {
     fn load_sites_configurations(&self, config: &mut Config) -> Result<(), error::CliError> {
         let root = PathBuf::from(&config.sites_directory);
         if !root.exists() {
-            log::warn!(
+            config_log_warn!(
+                "chimney_cli::cli",
                 "Sites directory does not exist: {}, creating it.",
                 root.display()
             );
@@ -200,7 +208,10 @@ impl Cli {
             // We need to read whatever config file they have as a Site
             let config_file = path.join("chimney.toml");
             if !config_file.exists() {
-                log::warn!("No Chimney configuration file found for site: {site_name}, skipping.");
+                config_log_warn!(
+                    "chimney_cli::cli",
+                    "No Chimney configuration file found for site: {site_name}, skipping."
+                );
                 continue;
             }
 
@@ -211,7 +222,10 @@ impl Cli {
                 .map_err(|e| CliError::Generic(format!("Failed to canonicalize site path: {e}")))?;
 
             // Now we need to add the site configuration to the main Chimney config
-            log::info!("Adding new site configuration for: {site_name}");
+            config_log_debug!(
+                "chimney_cli::cli",
+                "Adding new site configuration for: {site_name}"
+            );
             site_config.set_root_directory(site_root.to_string_lossy().to_string());
             config.sites.add(site_config)?;
         }
