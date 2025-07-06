@@ -64,7 +64,7 @@ COPY chimney.toml /etc/chimney/chimney.toml
 EXPOSE 80
 
 # Start the proxy
-CMD ["run"]
+CMD ["serve"]
 ```
 
 ## As a standalone binary
@@ -81,14 +81,14 @@ cd chimney
 cargo build --release
 
 # and then run it
-./target/release/chimney run
+./target/release/chimney serve
 ```
 
 ## Usage
 
 ```sh
-chimney init path/to/root
-chimney run -c path/to/root/chimney.toml
+chimney init -p path/to/config
+chimney serve -c path/to/config/chimney.toml
 ```
 
 ## Why not \[this other proxy/server\]?
