@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
-use log::{debug, error};
+use log::{debug, error, info};
 
 use crate::{
     config::{Config, ConfigHandle},
@@ -69,7 +69,7 @@ impl Server {
                 .await
                 .expect("Failed to install Ctrl+C handler");
 
-            debug!("Received shutdown signal, shutting down the server...");
+            info!("Received shutdown signal, shutting down the server...");
             signal.notify_waiters();
         });
     }
