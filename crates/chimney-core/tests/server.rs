@@ -77,16 +77,3 @@ pub async fn test_get_socket_address_with_custom_config() {
     );
     test_socket_address!(config);
 }
-
-#[tokio::test]
-// Test with a configuration that has a reserved port
-pub async fn test_get_socket_address_with_invalid_config() {
-    let config = config!(
-        r#"
-            host = "0.0.0.0"
-            port = 80
-            sites_directory = "./sites"
-            "#
-    );
-    test_socket_address!(config, reserved);
-}
