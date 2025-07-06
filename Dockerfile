@@ -32,7 +32,7 @@ RUN echo $'host = "0.0.0.0" \n\
 	port = 80 \n\
 	host_detection = "auto" \n\
 	sites_directory = "/var/www/html" \n\
-	log_level = "trace"' > /etc/chimney/chimney.toml
+	log_level = "trace"' > /etc/chimney/config.toml
 
 # Create default index page
 RUN mkdir -p /var/www/html/default
@@ -42,13 +42,13 @@ RUN echo $'root = "." \n\
 	default_index_file = "index.html"' > /var/www/html/default/chimney.toml
 RUN echo $'<h1>Hello, World!</h1>\n\
 	<p>If you can see this page, you have successfully setup and started Chimney.</p>\n\
-	<p>Copy your own config file to <b>`/etc/chimney/chimney.toml`</b> and your static files to the <b>`/var/www/html/default`</b> directory (unless you changed it) to serve your files.</p>' > /var/www/html/default/index.html
+	<p>Copy your own config file to <b>`/etc/chimney/config.toml`</b> and your static files to the <b>`/var/www/html/default`</b> directory (unless you changed it) to serve your files.</p>' > /var/www/html/default/index.html
 
 ENV PATH="/bin/chimney:$PATH"
 
 ENTRYPOINT ["chimney"]
 
-CMD ["serve"]
+CMD ["serve", "-c", "/etc/chimney/config.toml"]
 
 LABEL org.opencontainers.image.title="Chimney"
 
