@@ -148,9 +148,10 @@ mod tests {
         let fs = MockFilesystem;
         let path = std::path::PathBuf::from("index.html");
         let content = fs.read_file(path).unwrap();
+        let content_html = String::from_utf8(content.bytes().to_vec()).unwrap();
 
         assert_eq!(
-            content.text(),
+            content_html,
             "<html><body><h1>Welcome to Chimney!</h1></body></html>"
         );
     }
