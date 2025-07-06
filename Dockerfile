@@ -32,7 +32,7 @@ RUN echo $'host = "0.0.0.0" \n\
 	port = 80 \n\
 	host_detection = "auto" \n\
 	sites_directory = "/var/www/html" \n\
-	log_level = "trace"' > /etc/chimney/config.toml
+	log_level = "info"' > /etc/chimney/config.toml
 
 # Create default index page
 RUN mkdir -p /var/www/html/default
