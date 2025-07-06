@@ -447,6 +447,7 @@ impl Sites {
 
     /// Updates an existing site configuration in the config
     pub fn update(&mut self, site: Site) -> Result<(), ChimneyError> {
+        debug!("Updating site configuration: {}", site.name);
         if self.get(&site.name).is_none() {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{}", site.name),
@@ -463,6 +464,7 @@ impl Sites {
 
     /// Removes a site configuration from the config
     pub fn remove(&mut self, name: &str) -> Result<(), ChimneyError> {
+        debug!("Removing site configuration: {name}");
         if self.inner.remove(name).is_some() {
             self.domain_index.clear_for_site(name);
             return Ok(());
@@ -476,16 +478,21 @@ impl Sites {
 
     /// Returns an iterator over the site configurations
     pub fn values(&self) -> impl Iterator<Item = &Site> {
+        debug!("Getting all site configurations");
         self.inner.values()
     }
 
     /// Finds a site configuration by its domain/host name
     pub fn find_by_hostname(&self, domain: &str) -> Option<&Site> {
+        debug!("Finding site by hostname: {domain}");
         let domain: Domain = Domain::try_from(domain.to_string())
             .map_err(|e| ChimneyError::DomainParseError(e.to_string()))
             .ok()?;
+        debug!("Looking up domain: {domain}");
 
         let site_name = self.domain_index.get(&domain);
+        debug!("Found site name: {site_name:?}");
+
         match site_name {
             Some(name) => self.inner.get(name),
             None => None,
@@ -496,8 +503,6 @@ impl Sites {
     /// All existing domains for that site would be removed and then re-added with the provided
     /// site as the source of truth
     fn rebuild_site_index(&mut self, site: &Site) -> Result<(), ChimneyError> {
-        debug!("Rebuilding index for site with empty name, skipping");
-
         // We don't allow empty site names since we need it in the index
         if site.name.is_empty() {
             debug!("Site name is empty, skipping index rebuild");

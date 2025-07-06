@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -21,6 +21,16 @@ impl Domain {
     /// Constructs a new `Domain` from a string representation
     pub fn new(name: String, port: Option<u16>) -> Self {
         Self { name, port }
+    }
+}
+
+impl Display for Domain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(port) = self.port {
+            write!(f, "{}:{}", self.name, port)
+        } else {
+            write!(f, "{}", self.name)
+        }
     }
 }
 
@@ -81,7 +91,7 @@ impl DomainIndex {
 
     /// Gets the wildcard domain site name if it exists
     pub fn get_wildcard(&self) -> Option<&String> {
-        self.get(&Domain {
+        self.inner.get(&Domain {
             name: WILDCARD_DOMAIN.to_string(),
             port: None,
         })

@@ -336,11 +336,17 @@ impl Service {
     fn handle_error(&self, error: ServerError) -> Response<Full<Bytes>> {
         debug!("Handling error: {error}");
         let status = match error {
-            ServerError::SiteNotFound { host } => Status::GenericError {
-                message: format!("No site found for host: {host}"),
-                code: StatusCode::NOT_FOUND,
-                headers: HeaderMap::new(),
-            },
+            ServerError::SiteNotFound { host } => {
+                if cfg!(debug_assertions) {
+                    Status::GenericError {
+                        message: format!("No site found for host: {host}"),
+                        code: StatusCode::NOT_FOUND,
+                        headers: HeaderMap::new(),
+                    }
+                } else {
+                    Status::NotFound
+                }
+            }
             ServerError::InvalidHeaderValue {
                 header,
                 value,
