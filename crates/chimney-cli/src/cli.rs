@@ -12,6 +12,14 @@ use crate::{
     format::FormatType,
 };
 
+/// A constant array of default configuration file paths to use if none is provided.
+const DEFAULT_CONFIG_DIRS: [&str; 4] = [
+    "/etc/chimney/config.toml",
+    "~/.config/chimney.toml",
+    "~/.config/chimney/chimney.toml",
+    "chimney.toml",
+];
+
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Start the server with the provided configuration
@@ -128,46 +136,68 @@ impl Cli {
     /// Load the chimney configuration from the specified file path.
     /// If no path is provided, it returns the default configuration.
     fn load_config(&self, config_path: &Option<String>) -> Result<Config, error::CliError> {
-        if let Some(path) = config_path {
-            let path = PathBuf::from(path);
-            let path = path
-                .canonicalize()
-                .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {e}")))?;
-
-            config_log_debug!(
-                "chimney_cli::cli",
-                "Loading configuration from: {}",
-                path.display()
-            );
-
-            if !path.exists() {
-                return Err(CliError::Generic(format!(
-                    "Configuration file does not exist: {}",
-                    path.display()
-                )));
-            } else if !path.is_file() {
-                return Err(CliError::Generic(format!(
-                    "Provided path is not a file: {}",
-                    path.display()
-                )));
+        match config_path {
+            Some(path) if path.is_empty() => {
+                config_log_debug!(
+                    "chimney_cli::cli",
+                    "Empty configuration path provided, using default configuration."
+                );
+                Ok(Config::default())
             }
+            Some(path) => {
+                let path = PathBuf::from(path);
+                self.load_config_from_path(path)
+            }
+            None => {
+                // Check default configuration directories
+                for dir in DEFAULT_CONFIG_DIRS.iter() {
+                    let path = PathBuf::from(dir);
+                    if path.exists() && path.is_file() {
+                        return self.load_config_from_path(path);
+                    }
+                }
 
-            let config_content = std::fs::read_to_string(&path).map_err(CliError::Read)?;
-
-            let mut config = config::toml::Toml::from(config_content.as_str())
-                .parse()
-                .map_err(CliError::Chimney)?;
-
-            self.load_sites_configurations(&mut config)?;
-
-            return Ok(config);
+                config_log_debug!(
+                    "chimney_cli::cli",
+                    "No configuration path provided, not found in default directories, using default configuration."
+                );
+                Ok(Config::default())
+            }
         }
+    }
+
+    fn load_config_from_path(&self, path: PathBuf) -> Result<Config, error::CliError> {
+        let path = path
+            .canonicalize()
+            .map_err(|e| CliError::Generic(format!("Failed to canonicalize path: {e}")))?;
 
         config_log_debug!(
             "chimney_cli::cli",
-            "No configuration file provided, using default configuration."
+            "Loading configuration from: {}",
+            path.display()
         );
-        Ok(Config::default())
+
+        if !path.exists() {
+            return Err(CliError::Generic(format!(
+                "Configuration file does not exist: {}",
+                path.display()
+            )));
+        } else if !path.is_file() {
+            return Err(CliError::Generic(format!(
+                "Provided path is not a file: {}",
+                path.display()
+            )));
+        }
+
+        let config_content = std::fs::read_to_string(&path).map_err(CliError::Read)?;
+
+        let mut config = config::toml::Toml::from(config_content.as_str())
+            .parse()
+            .map_err(CliError::Chimney)?;
+
+        self.load_sites_configurations(&mut config)?;
+
+        return Ok(config);
     }
 
     /// Load the configurations for sites not already defined in the Chimney configuration.
