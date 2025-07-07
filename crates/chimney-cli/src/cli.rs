@@ -13,9 +13,10 @@ use crate::{
 };
 
 /// A constant array of default configuration file paths to use if none is provided.
-const DEFAULT_CONFIG_DIRS: [&str; 3] = [
+const DEFAULT_CONFIG_DIRS: [&str; 4] = [
     "/etc/chimney/config.toml",
-    ".config/chimney",
+    "~/.config/chimney.toml",
+    "~/.config/chimney/chimney.toml",
     "chimney.toml",
 ];
 
