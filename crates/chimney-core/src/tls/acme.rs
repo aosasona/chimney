@@ -47,6 +47,13 @@ impl AcmeManager {
         );
         info!("Using ACME directory: {}", directory_url);
 
+        // Validate site name to prevent path traversal
+        if site_name.contains("..") || site_name.contains('/') || site_name.contains('\\') {
+            return Err(ServerError::TlsInitializationFailed(
+                format!("Invalid site name '{}': contains path traversal characters", site_name),
+            ));
+        }
+
         // Create cache directory for this site
         let site_cache_dir = cache_dir.join(&site_name);
         if !site_cache_dir.exists() {

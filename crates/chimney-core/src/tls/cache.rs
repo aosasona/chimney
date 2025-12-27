@@ -4,13 +4,35 @@ use std::{fs, path::{Path, PathBuf}};
 
 use crate::error::ServerError;
 
+/// Validate that a site name doesn't contain path traversal attempts
+fn validate_site_name(site_name: &str) -> Result<(), ServerError> {
+    // Check for path traversal attempts
+    if site_name.contains("..") || site_name.contains('/') || site_name.contains('\\') {
+        return Err(ServerError::TlsInitializationFailed(
+            "Invalid site name: contains path traversal characters".to_string(),
+        ));
+    }
+
+    // Check for empty or whitespace-only names
+    if site_name.trim().is_empty() {
+        return Err(ServerError::TlsInitializationFailed(
+            "Invalid site name: empty or whitespace-only".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 /// Create the certificate directory for a site
 pub fn create_cert_directory(site_name: &str, cert_dir: &Path) -> Result<PathBuf, ServerError> {
+    // Validate site name to prevent path traversal
+    validate_site_name(site_name)?;
+
     let site_cert_dir = cert_dir.join(site_name);
 
     fs::create_dir_all(&site_cert_dir).map_err(|e| {
         ServerError::CertificateDirectoryCreationFailed {
-            path: site_cert_dir.display().to_string(),
+            path: format!(".chimney/certs/{}", site_name),  // Don't leak full path
             message: e.to_string(),
         }
     })?;
@@ -25,6 +47,7 @@ pub fn save_certificate(
     cert_pem: &[u8],
     key_pem: &[u8],
 ) -> Result<(), ServerError> {
+    // create_cert_directory already validates site_name
     let site_cert_dir = create_cert_directory(site_name, cert_dir)?;
 
     let cert_path = site_cert_dir.join("cert.pem");
@@ -48,6 +71,7 @@ pub fn save_certificate(
         e
     )))?;
 
+    // Set restrictive permissions on private key
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -57,11 +81,15 @@ pub fn save_certificate(
                 e
             )))?
             .permissions();
-        perms.set_mode(0o600);
+        perms.set_mode(0o600);  // Owner read/write only
         fs::set_permissions(&temp_key, perms).map_err(|e| {
             ServerError::TlsInitializationFailed(format!("Failed to set key file permissions: {}", e))
         })?;
     }
+
+    // NOTE: On Windows, file permissions are managed via ACLs and require
+    // additional dependencies (winapi). Consider using proper ACLs for production.
+    // For now, Windows users should ensure proper NTFS permissions manually.
 
     fs::rename(&temp_key, &key_path).map_err(|e| ServerError::TlsInitializationFailed(format!(
         "Failed to move private key: {}",
@@ -76,6 +104,9 @@ pub fn load_cached_certificate(
     site_name: &str,
     cert_dir: &Path,
 ) -> Result<Option<(Vec<u8>, Vec<u8>)>, ServerError> {
+    // Validate site name to prevent path traversal
+    validate_site_name(site_name)?;
+
     let site_cert_dir = cert_dir.join(site_name);
     let cert_path = site_cert_dir.join("cert.pem");
     let key_path = site_cert_dir.join("key.pem");
@@ -85,12 +116,12 @@ pub fn load_cached_certificate(
     }
 
     let cert_pem = fs::read(&cert_path).map_err(|e| ServerError::InvalidCertificateFile {
-        path: cert_path.display().to_string(),
+        path: format!(".chimney/certs/{}/cert.pem", site_name),  // Don't leak full path
         message: e.to_string(),
     })?;
 
     let key_pem = fs::read(&key_path).map_err(|e| ServerError::InvalidPrivateKeyFile {
-        path: key_path.display().to_string(),
+        path: format!(".chimney/certs/{}/key.pem", site_name),  // Don't leak full path
         message: e.to_string(),
     })?;
 

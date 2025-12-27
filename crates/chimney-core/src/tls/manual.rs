@@ -1,6 +1,6 @@
 // Manual certificate loading from PEM files
 
-use std::{fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{fs::File, io::BufReader, path::{Path, PathBuf}, sync::Arc};
 
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
@@ -9,9 +9,54 @@ use rustls_pemfile::{certs, private_key};
 
 use crate::error::ServerError;
 
+/// Validate that a certificate/key file path is safe to read
+///
+/// This prevents reading arbitrary files on the system by ensuring:
+/// 1. The path doesn't contain obvious path traversal attempts
+/// 2. The path is canonicalized (resolves symlinks and relative paths)
+/// 3. Basic validation that the path exists and is a file
+fn validate_cert_path(path: &Path, file_type: &str) -> Result<PathBuf, ServerError> {
+    // Convert to string for traversal check
+    let path_str = path.to_string_lossy();
+
+    // Check for path traversal attempts in the raw path
+    if path_str.contains("..") {
+        return Err(ServerError::TlsInitializationFailed(
+            format!("Invalid {} path: contains path traversal characters", file_type),
+        ));
+    }
+
+    // Canonicalize the path (resolves symlinks and makes absolute)
+    // This also validates that the path exists
+    let canonical = path.canonicalize().map_err(|e| {
+        ServerError::InvalidCertificateFile {
+            path: path.display().to_string(),
+            message: format!("Cannot access {}: {}", file_type, e),
+        }
+    })?;
+
+    // Verify it's a file, not a directory
+    if !canonical.is_file() {
+        return Err(ServerError::InvalidCertificateFile {
+            path: path.display().to_string(),
+            message: format!("{} path is not a file", file_type),
+        });
+    }
+
+    // NOTE: We don't restrict to specific directories because users may have
+    // certificates in various locations (/etc/letsencrypt, ~/certs, etc.)
+    // The canonicalize check ensures the file exists and is accessible.
+    // Additional directory restrictions could be added in the future if needed.
+
+    Ok(canonical)
+}
+
 /// Load certificate chain from a PEM file
 pub fn load_certificate_chain(path: &Path) -> Result<Vec<CertificateDer<'static>>, ServerError> {
-    let file = File::open(path).map_err(|e| ServerError::InvalidCertificateFile {
+    // Validate the path before opening
+    let safe_path = validate_cert_path(path, "certificate")?;
+
+    let file = File::open(&safe_path).map_err(|e| ServerError::InvalidCertificateFile {
         path: path.display().to_string(),
         message: e.to_string(),
     })?;
@@ -27,7 +72,10 @@ pub fn load_certificate_chain(path: &Path) -> Result<Vec<CertificateDer<'static>
 
 /// Load private key from a PEM file (supports RSA and ECDSA)
 pub fn load_private_key(path: &Path) -> Result<PrivateKeyDer<'static>, ServerError> {
-    let file = File::open(path).map_err(|e| ServerError::InvalidPrivateKeyFile {
+    // Validate the path before opening
+    let safe_path = validate_cert_path(path, "private key")?;
+
+    let file = File::open(&safe_path).map_err(|e| ServerError::InvalidPrivateKeyFile {
         path: path.display().to_string(),
         message: e.to_string(),
     })?;

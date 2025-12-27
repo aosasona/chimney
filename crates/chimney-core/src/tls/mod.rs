@@ -51,7 +51,6 @@ pub mod manual;
 use std::{path::Path, sync::Arc};
 
 use log::{debug, info};
-use rustls::server::ResolvesServerCert;
 use tokio_rustls::TlsAcceptor;
 
 use crate::{config::Config, error::ServerError};
