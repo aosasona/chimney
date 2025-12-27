@@ -15,6 +15,7 @@ use crate::{config::Config, error::ServerError};
 
 use self::{
     acceptor::{build_tls_acceptor, SniResolver},
+    acme::AcmeManager,
     config::{process_site_https_config, TlsMode},
 };
 
@@ -22,6 +23,7 @@ use self::{
 pub struct TlsManager {
     config: Arc<Config>,
     sni_resolver: SniResolver,
+    acme_managers: Vec<AcmeManager>,
 }
 
 impl TlsManager {
@@ -30,6 +32,8 @@ impl TlsManager {
         debug!("Initializing TLS manager");
 
         let mut sni_resolver = SniResolver::new();
+        let mut acme_managers = Vec::new();
+        let cert_dir = config.cert_directory();
 
         // Process each site's HTTPS configuration
         for site in config.sites.values() {
@@ -60,21 +64,31 @@ impl TlsManager {
                         }
                     }
                     TlsMode::Acme {
-                        email: _,
-                        directory_url: _,
+                        email,
+                        directory_url,
                     } => {
-                        // ACME support will be implemented later
+                        // Initialize ACME manager for this site
                         info!(
-                            "ACME support not yet implemented for site '{}'",
-                            tls_config.site_name
+                            "Initializing ACME for site '{}' with email: {}",
+                            tls_config.site_name, email
                         );
-                        // TODO: Implement ACME certificate issuance
+
+                        let acme_manager = AcmeManager::new(
+                            tls_config.site_name.clone(),
+                            tls_config.domains.clone(),
+                            email,
+                            directory_url,
+                            &cert_dir,
+                        )
+                        .await?;
+
+                        acme_managers.push(acme_manager);
                     }
                 }
             }
         }
 
-        if sni_resolver.is_empty() {
+        if sni_resolver.is_empty() && acme_managers.is_empty() {
             return Err(ServerError::TlsInitializationFailed(
                 "No valid TLS certificates configured".to_string(),
             ));
@@ -83,6 +97,7 @@ impl TlsManager {
         Ok(Self {
             config,
             sni_resolver,
+            acme_managers,
         })
     }
 
@@ -99,6 +114,19 @@ impl TlsManager {
     /// Build a TLS acceptor with the configured certificates
     pub fn build_acceptor(&self) -> Result<Arc<TlsAcceptor>, ServerError> {
         debug!("Building TLS acceptor");
+
+        // Note: ACME support is not yet fully implemented
+        // For now, we only support manual certificates
+        if !self.acme_managers.is_empty() {
+            info!(
+                "ACME configuration detected for {} site(s), but ACME is not yet fully implemented",
+                self.acme_managers.len()
+            );
+            info!("Please use manual certificates for now");
+        }
+
+        // Build TLS acceptor with manual certificates only
+        info!("Building TLS acceptor with manual certificates");
         let acceptor = build_tls_acceptor(self.sni_resolver.clone())?;
         Ok(Arc::new(acceptor))
     }

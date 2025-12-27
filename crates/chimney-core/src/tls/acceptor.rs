@@ -9,7 +9,7 @@ use rustls::{
 };
 use tokio_rustls::TlsAcceptor;
 
-/// SNI resolver that maps domain names to certificates
+/// SNI resolver that maps domain names to certificates (manual certificates)
 #[derive(Clone, Debug)]
 pub struct SniResolver {
     certs: HashMap<String, Arc<CertifiedKey>>,
@@ -57,7 +57,7 @@ impl ResolvesServerCert for SniResolver {
     }
 }
 
-/// Build a TLS acceptor with SNI support
+/// Build a TLS acceptor with SNI support (manual certificates only)
 pub fn build_tls_acceptor(resolver: SniResolver) -> Result<TlsAcceptor, crate::error::ServerError> {
     if resolver.is_empty() {
         return Err(crate::error::ServerError::TlsInitializationFailed(

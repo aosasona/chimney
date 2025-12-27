@@ -1,20 +1,35 @@
 // ACME client integration for automatic certificate issuance
+//
+// NOTE: Full ACME implementation with tokio-rustls-acme 0.8 is a work in progress.
+// The API has changed significantly and requires additional integration work.
+// For now, manual certificates are fully supported and recommended for production use.
+//
+// To use manual certificates, configure your site with:
+// ```toml
+// [https_config]
+// enabled = true
+// auto_issue = false
+// cert_file = "/path/to/cert.pem"
+// key_file = "/path/to/key.pem"
+// ```
 
 use std::path::Path;
 
+use log::info;
+
 use crate::error::ServerError;
 
-/// ACME manager for a site
+/// ACME manager for a site (stub for future implementation)
 pub struct AcmeManager {
     site_name: String,
     domains: Vec<String>,
-    email: String,
-    directory_url: String,
-    cache_dir: std::path::PathBuf,
+    _email: String,
+    _directory_url: String,
+    _cache_dir: std::path::PathBuf,
 }
 
 impl AcmeManager {
-    /// Create a new ACME manager
+    /// Create a new ACME manager (stub)
     pub async fn new(
         site_name: String,
         domains: Vec<String>,
@@ -22,42 +37,21 @@ impl AcmeManager {
         directory_url: String,
         cache_dir: &Path,
     ) -> Result<Self, ServerError> {
+        info!(
+            "ACME requested for site '{}' with domains: {:?}, but full ACME support is not yet implemented",
+            site_name, domains
+        );
+        info!(
+            "Please use manual certificates for now. See documentation for configuration."
+        );
+
         Ok(Self {
             site_name,
             domains,
-            email,
-            directory_url,
-            cache_dir: cache_dir.to_path_buf(),
+            _email: email,
+            _directory_url: directory_url,
+            _cache_dir: cache_dir.to_path_buf(),
         })
     }
 
-    /// Get or issue a certificate
-    /// This will check the cache first, and issue a new certificate if needed
-    pub async fn get_or_issue_certificate(&mut self) -> Result<(Vec<u8>, Vec<u8>), ServerError> {
-        // Check cache first
-        if let Some((cert, key)) =
-            super::cache::load_cached_certificate(&self.site_name, &self.cache_dir)?
-        {
-            // TODO: Check if certificate is still valid and not expiring soon
-            return Ok((cert, key));
-        }
-
-        // Issue new certificate
-        self.issue_certificate().await
-    }
-
-    /// Issue a new certificate via ACME
-    async fn issue_certificate(&mut self) -> Result<(Vec<u8>, Vec<u8>), ServerError> {
-        // TODO: Implement ACME certificate issuance using tokio-rustls-acme
-        // For now, return an error
-        Err(ServerError::AcmeCertificateIssuanceFailed(
-            "ACME implementation pending".to_string(),
-        ))
-    }
-
-    /// Renew an existing certificate
-    pub async fn renew_certificate(&mut self) -> Result<(Vec<u8>, Vec<u8>), ServerError> {
-        // TODO: Implement certificate renewal
-        self.issue_certificate().await
-    }
 }
