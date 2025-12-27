@@ -63,7 +63,7 @@ use self::{
 
 /// Coordinates all TLS operations including certificate loading, ACME, and SNI
 pub struct TlsManager {
-    config: Arc<Config>,
+    _config: Arc<Config>,
     sni_resolver: SniResolver,
     acme_manager: Option<AcmeManager>,
 }
@@ -172,7 +172,7 @@ impl TlsManager {
         }
 
         Ok(Self {
-            config,
+            _config: config,
             sni_resolver,
             acme_manager,
         })
