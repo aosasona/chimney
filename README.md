@@ -91,6 +91,63 @@ chimney init -p path/to/config
 chimney serve -c path/to/config/chimney.toml
 ```
 
+## HTTPS Configuration
+
+Chimney supports HTTPS with manual certificate configuration. Automatic certificate issuance via ACME is planned but not yet implemented.
+
+### Manual Certificates
+
+To enable HTTPS for a site, configure the `https_config` section in your site's `chimney.toml`:
+
+```toml
+# sites/example/chimney.toml
+root = "."
+domain_names = ["example.com", "www.example.com"]
+
+[https_config]
+enabled = true
+auto_issue = false              # Set to false for manual certificates
+auto_redirect = true            # Automatically redirect HTTP to HTTPS
+cert_file = "/path/to/cert.pem"
+key_file = "/path/to/key.pem"
+# ca_file = "/path/to/ca.pem"   # Optional CA certificate
+```
+
+#### Generating Self-Signed Certificates (for testing)
+
+```sh
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -keyout key.pem -out cert.pem -days 365 \
+  -subj "/CN=example.com"
+```
+
+### Dual Listener Architecture
+
+When HTTPS is enabled:
+- HTTP listener runs on the configured port (default: 80)
+- HTTPS listener runs on port 443
+- Requests are automatically redirected from HTTP to HTTPS when `auto_redirect = true`
+
+### SNI Support
+
+Chimney supports Server Name Indication (SNI), allowing multiple sites with different certificates on the same server. Each site can have its own certificate configuration.
+
+### Future: Automatic Certificate Issuance
+
+Automatic certificate issuance via ACME (Let's Encrypt) is planned but not yet implemented. When available, you'll be able to configure it like this:
+
+```toml
+# Future configuration (not yet implemented)
+[https_config]
+enabled = true
+auto_issue = true
+auto_redirect = true
+acme_email = "admin@example.com"
+# acme_directory = "https://acme-v02.api.letsencrypt.org/directory"  # Default
+```
+
+For now, please use manual certificates as shown above.
+
 ## Why not \[this other proxy/server\]?
 
 Because I wanted to make one, and I did. That's the simple answer.
@@ -101,5 +158,5 @@ This is most definitely not what you want, and if it is, give it a go and let me
 
 I would love to hear from people who are actively using this mainly for bug fixes and feature suggestions, I may or may not add your desired feature if it doesn't fit any of the goals.
 
-> [!WARNING]
-> HTTPS functionality has NOT been implemented yet, so using this standalone in production is kind of not feasible... unless you have some sort of central proxy and a bunch of containers running Chimney that you simply proxy requests to (you can probably tell what my usecase is...)
+> [!NOTE]
+> HTTPS is now supported with manual certificates. Automatic certificate issuance via ACME (Let's Encrypt) is planned for a future release. See the HTTPS Configuration section above for details.
