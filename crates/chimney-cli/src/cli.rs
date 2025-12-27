@@ -262,7 +262,11 @@ impl Cli {
                 "chimney_cli::cli",
                 "Adding new site configuration for: {site_name}"
             );
-            site_config.set_root_directory(site_root.to_string_lossy().to_string());
+
+            // Append the site's configured root directory to the canonicalized site path
+            // This preserves the "root" setting from the site's chimney.toml
+            let full_root = site_root.join(&site_config.root);
+            site_config.set_root_directory(full_root.to_string_lossy().to_string());
             config.sites.add(site_config)?;
         }
 

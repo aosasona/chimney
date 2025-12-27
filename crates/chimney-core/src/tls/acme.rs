@@ -49,9 +49,10 @@ impl AcmeManager {
 
         // Validate site name to prevent path traversal
         if site_name.contains("..") || site_name.contains('/') || site_name.contains('\\') {
-            return Err(ServerError::TlsInitializationFailed(
-                format!("Invalid site name '{}': contains path traversal characters", site_name),
-            ));
+            return Err(ServerError::TlsInitializationFailed(format!(
+                "Invalid site name '{}': contains path traversal characters",
+                site_name
+            )));
         }
 
         // Create cache directory for this site
