@@ -1,4 +1,46 @@
 // TLS module for handling HTTPS connections, ACME, and certificate management
+//
+//! TLS and ACME certificate management for Chimney.
+//!
+//! This module provides automatic TLS certificate issuance via ACME (Let's Encrypt)
+//! and manual certificate loading. It integrates seamlessly whether you're using
+//! Chimney as a CLI application or as a library.
+//!
+//! # Library Usage
+//!
+//! When using Chimney as a library, HTTPS and ACME work automatically based on your configuration:
+//!
+//! ```ignore
+//! use std::sync::Arc;
+//! use chimney::{Config, Server, filesystem::LocalFilesystem};
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Create configuration with ACME
+//!     let mut config = Config::default();
+//!     config.sites_directory = "./sites".to_string();
+//!
+//!     // Optional: Set where config file would be (for cert caching location)
+//!     config.config_file_path = Some(std::path::PathBuf::from("./config.toml"));
+//!
+//!     // Sites with HTTPS configured will automatically get ACME certificates
+//!     // (configured in individual site chimney.toml files)
+//!
+//!     let filesystem = Arc::new(LocalFilesystem::new());
+//!     let server = Server::new_with_tls(filesystem, Arc::new(config)).await?;
+//!
+//!     server.run().await?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! # Certificate Storage
+//!
+//! Certificates are cached in `.chimney/certs/` relative to:
+//! - The directory containing the config file (if `config_file_path` is set)
+//! - The `sites_directory` (if `config_file_path` is not set)
+//!
+//! This ensures certificates persist across restarts and are automatically renewed.
 
 pub mod acceptor;
 pub mod acme;
@@ -150,6 +192,11 @@ impl TlsManager {
     /// Check if ACME is enabled
     pub fn has_acme(&self) -> bool {
         self.acme_manager.is_some()
+    }
+
+    /// Check if manual certificates SNI resolver is empty
+    pub fn is_manual_empty(&self) -> bool {
+        self.sni_resolver.is_empty()
     }
 
     /// Get the ACME acceptor if ACME is enabled

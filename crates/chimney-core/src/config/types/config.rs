@@ -202,7 +202,26 @@ impl Config {
 // TLS certificate directory resolution
 impl Config {
     /// Returns the directory where certificates should be stored
-    /// This is based on the config file location, falling back to sites directory
+    ///
+    /// The certificate directory is determined as follows:
+    /// 1. If `config_file_path` is set (typically by the CLI), certificates are stored
+    ///    in `<config_directory>/.chimney/certs/`
+    /// 2. Otherwise (when used as a library), certificates are stored in
+    ///    `<sites_directory>/.chimney/certs/`
+    ///
+    /// For example:
+    /// - With config at `/etc/chimney/chimney.toml`: certs go to `/etc/chimney/.chimney/certs/`
+    /// - Without config_file_path and sites_directory="./sites": certs go to `./sites/.chimney/certs/`
+    ///
+    /// # Library Usage
+    ///
+    /// When using Chimney as a library, you can optionally set `config_file_path` to control
+    /// where certificates are cached:
+    ///
+    /// ```ignore
+    /// let mut config = Config::default();
+    /// config.config_file_path = Some(PathBuf::from("/path/to/config.toml"));
+    /// ```
     pub fn cert_directory(&self) -> PathBuf {
         if let Some(config_path) = &self.config_file_path {
             // Use parent directory of config file
@@ -212,7 +231,7 @@ impl Config {
                 .join(".chimney")
                 .join("certs")
         } else {
-            // Fallback to sites directory
+            // Fallback to sites directory (default behavior for library usage)
             PathBuf::from(&self.sites_directory)
                 .join(".chimney")
                 .join("certs")

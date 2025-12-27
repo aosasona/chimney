@@ -40,6 +40,21 @@ pub struct Server {
 }
 
 impl Server {
+    /// Create a new Chimney server instance without TLS support
+    ///
+    /// Use this constructor for HTTP-only servers. If you need HTTPS support
+    /// (either manual certificates or ACME), use [`Server::new_with_tls`] instead.
+    ///
+    /// # Example (Library Usage)
+    ///
+    /// ```ignore
+    /// use std::sync::Arc;
+    /// use chimney::{Config, Server, filesystem::LocalFilesystem};
+    ///
+    /// let filesystem = Arc::new(LocalFilesystem::new());
+    /// let config = Arc::new(Config::default());
+    /// let server = Server::new(filesystem, config);
+    /// ```
     pub fn new(filesystem: Arc<dyn crate::filesystem::Filesystem>, config: Arc<Config>) -> Self {
         debug!("Creating a new Chimney server instance");
 
@@ -59,6 +74,32 @@ impl Server {
     }
 
     /// Create a new server instance with TLS support enabled
+    ///
+    /// This constructor automatically detects HTTPS configuration and initializes:
+    /// - ACME certificate management (if `auto_issue = true` in any site)
+    /// - Manual certificate loading (if certificate files are provided)
+    /// - SNI for multi-domain support
+    ///
+    /// Use this instead of [`Server::new`] when any site has HTTPS enabled.
+    ///
+    /// # Example (Library Usage)
+    ///
+    /// ```ignore
+    /// use std::sync::Arc;
+    /// use chimney::{Config, Server, filesystem::LocalFilesystem};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let filesystem = Arc::new(LocalFilesystem::new());
+    ///     let config = Arc::new(Config::default());
+    ///
+    ///     // Automatically handles ACME and manual certificates based on site config
+    ///     let server = Server::new_with_tls(filesystem, config).await?;
+    ///
+    ///     server.run().await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn new_with_tls(
         filesystem: Arc<dyn crate::filesystem::Filesystem>,
         config: Arc<Config>,
@@ -74,8 +115,15 @@ impl Server {
         let (tls_manager, tls_acceptor) = if crate::tls::TlsManager::is_tls_enabled(&config) {
             info!("TLS is enabled, initializing TLS manager");
             let manager = Arc::new(crate::tls::TlsManager::new(config.clone()).await?);
-            let acceptor = manager.build_acceptor()?;
-            (Some(manager), Some(acceptor))
+
+            // Only build manual TLS acceptor if we have manual certificates and no ACME
+            let acceptor = if !manager.has_acme() && !manager.is_manual_empty() {
+                Some(manager.build_acceptor()?)
+            } else {
+                None
+            };
+
+            (Some(manager), acceptor)
         } else {
             (None, None)
         };
