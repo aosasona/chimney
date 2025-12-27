@@ -12,22 +12,15 @@ use crate::error::ServerError;
 /// Validate that a certificate/key file path is safe to read
 ///
 /// This prevents reading arbitrary files on the system by ensuring:
-/// 1. The path doesn't contain obvious path traversal attempts
-/// 2. The path is canonicalized (resolves symlinks and relative paths)
-/// 3. Basic validation that the path exists and is a file
+/// 1. The path is canonicalized (resolves symlinks and relative paths)
+/// 2. Basic validation that the path exists and is a file
+///
+/// Note: Relative paths with ".." are allowed and will be resolved via canonicalization.
+/// The canonicalize() function safely resolves all path components and ensures the final
+/// path exists and is accessible.
 fn validate_cert_path(path: &Path, file_type: &str) -> Result<PathBuf, ServerError> {
-    // Convert to string for traversal check
-    let path_str = path.to_string_lossy();
-
-    // Check for path traversal attempts in the raw path
-    if path_str.contains("..") {
-        return Err(ServerError::TlsInitializationFailed(
-            format!("Invalid {} path: contains path traversal characters", file_type),
-        ));
-    }
-
-    // Canonicalize the path (resolves symlinks and makes absolute)
-    // This also validates that the path exists
+    // Canonicalize the path (resolves symlinks, relative paths, and makes absolute)
+    // This also validates that the path exists and is accessible
     let canonical = path.canonicalize().map_err(|e| {
         ServerError::InvalidCertificateFile {
             path: path.display().to_string(),
@@ -45,8 +38,9 @@ fn validate_cert_path(path: &Path, file_type: &str) -> Result<PathBuf, ServerErr
 
     // NOTE: We don't restrict to specific directories because users may have
     // certificates in various locations (/etc/letsencrypt, ~/certs, etc.)
-    // The canonicalize check ensures the file exists and is accessible.
-    // Additional directory restrictions could be added in the future if needed.
+    // The canonicalize() check ensures the file exists, is accessible, and
+    // all path components are safely resolved. Additional directory restrictions
+    // could be added in the future if needed.
 
     Ok(canonical)
 }

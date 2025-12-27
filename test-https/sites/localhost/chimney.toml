@@ -7,9 +7,9 @@ enabled = true
 auto_issue = false  # Using manual certificates (ACME requires public domain)
 auto_redirect = true  # Redirect HTTP → HTTPS
 
-# Paths to self-signed certificates (relative to this file or absolute)
-cert_file = "../../localhost-cert.pem"
-key_file = "../../localhost-key.pem"
+# Paths to self-signed certificates (relative to repo root or absolute)
+cert_file = "test-https/localhost-cert.pem"
+key_file = "test-https/localhost-key.pem"
 
 # Optional: Response headers for testing
 [response_headers]

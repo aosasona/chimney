@@ -24,8 +24,8 @@ if [[ "$1" == "--sudo" ]] || [[ "$EUID" -ne 0 ]]; then
     echo "   If you don't want to use sudo, grant capabilities:"
     echo "   sudo setcap CAP_NET_BIND_SERVICE=+eip ./target/release/chimney"
     echo ""
-    sudo ./target/release/chimney --config test-https/chimney.toml
+    sudo ./target/release/chimney-cli serve --config-path ./test-https/chimney.toml
 else
     echo "🚀 Starting server..."
-    ./target/release/chimney --config test-https/chimney.toml
+    ./target/release/chimney-cli serve --config-path ./test-https/chimney.toml
 fi

@@ -14,7 +14,7 @@ host = "0.0.0.0"
 port = 8080  # HTTP listener
 # HTTPS automatically runs on port 443
 
-sites_directory = "sites"
+sites_directory = "test-https/sites"
 log_level = "debug"
 
 # NOTE: Site-specific HTTPS configuration is in:
