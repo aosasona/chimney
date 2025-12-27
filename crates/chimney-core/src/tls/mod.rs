@@ -9,7 +9,7 @@ pub mod manual;
 use std::{path::Path, sync::Arc};
 
 use log::{debug, info};
-use rustls::crypto::CryptoProvider;
+use rustls::server::ResolvesServerCert;
 use tokio_rustls::TlsAcceptor;
 
 use crate::{config::Config, error::ServerError};
@@ -155,6 +155,11 @@ impl TlsManager {
     /// Get the ACME acceptor if ACME is enabled
     pub fn acme_acceptor(&self) -> Option<&tokio_rustls_acme::AcmeAcceptor> {
         self.acme_manager.as_ref().map(|m| m.acceptor())
+    }
+
+    /// Get the ACME resolver if ACME is enabled
+    pub fn acme_resolver(&self) -> Option<Arc<dyn rustls::server::ResolvesServerCert>> {
+        self.acme_manager.as_ref().map(|m| m.resolver())
     }
 
     /// Build a TLS acceptor with manual certificates only
