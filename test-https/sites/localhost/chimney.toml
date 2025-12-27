@@ -1,0 +1,17 @@
+# Site configuration for localhost HTTPS testing
+root = "public"
+domain_names = ["localhost", "127.0.0.1"]
+
+[https_config]
+enabled = true
+auto_issue = false  # Using manual certificates (ACME requires public domain)
+auto_redirect = true  # Redirect HTTP → HTTPS
+
+# Paths to self-signed certificates (relative to this file or absolute)
+cert_file = "../../localhost-cert.pem"
+key_file = "../../localhost-key.pem"
+
+# Optional: Response headers for testing
+[response_headers]
+"X-Test-Server" = "Chimney"
+"X-TLS-Mode" = "Manual"

@@ -1,0 +1,26 @@
+# Chimney HTTPS Test Configuration
+#
+# This configuration demonstrates manual HTTPS setup with self-signed certificates.
+# Perfect for local development and testing.
+#
+# Usage:
+#   cargo run -- --config test-https/chimney.toml
+#
+# Then visit:
+#   - HTTP:  http://localhost:8080 (will redirect to HTTPS)
+#   - HTTPS: https://localhost (accept security warning for self-signed cert)
+
+host = "0.0.0.0"
+port = 8080  # HTTP listener
+# HTTPS automatically runs on port 443
+
+sites_directory = "sites"
+log_level = "debug"
+
+# NOTE: Site-specific HTTPS configuration is in:
+#   sites/localhost/chimney.toml
+#
+# The HTTPS config includes:
+#   - Manual certificate mode (auto_issue = false)
+#   - Self-signed certificates for localhost
+#   - Automatic HTTP → HTTPS redirect

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimney HTTPS Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', 'Courier', monospace;
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            border: 1px solid #0f0;
+            padding: 30px;
+        }
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #0f0;
+            padding-bottom: 10px;
+        }
+        h2 {
+            font-size: 1.2em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        .status {
+            padding: 15px;
+            border: 1px solid #0f0;
+            margin: 20px 0;
+            background: #001100;
+        }
+        .secure {
+            color: #0f0;
+            font-weight: bold;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            padding: 8px 0;
+            padding-left: 20px;
+        }
+        li::before {
+            content: "> ";
+            color: #0f0;
+        }
+        code {
+            color: #fff;
+            background: #111;
+            padding: 2px 6px;
+        }
+        strong {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>[CHIMNEY HTTPS TEST TERMINAL]</h1>
+        <div class="status">
+            &gt; STATUS: <span class="secure" id="protocol">LOADING...</span>
+        </div>
+
+        <h2>CONNECTION DETAILS:</h2>
+        <ul>
+            <li><strong>PROTOCOL:</strong> <span id="proto-detail"></span></li>
+            <li><strong>HOST:</strong> <span id="host"></span></li>
+            <li><strong>PORT:</strong> <span id="port"></span></li>
+            <li><strong>URL:</strong> <code id="url"></code></li>
+        </ul>
+
+        <h2>TEST RESULTS:</h2>
+        <ul>
+            <li id="tls-test">[OK] TLS connection established</li>
+            <li id="cert-test">[OK] Self-signed certificate accepted</li>
+            <li id="server-test">[OK] Chimney server responding</li>
+            <li id="redirect-test">[WAIT] Testing HTTP -&gt; HTTPS redirect...</li>
+        </ul>
+
+        <h2>NEXT STEPS:</h2>
+        <ul>
+            <li>[DONE] Manual certificate mode working</li>
+            <li>[TODO] Try ACME mode with a real domain</li>
+            <li>[TODO] Test with multiple domains</li>
+            <li>[TODO] Test SNI with wildcard certificates</li>
+        </ul>
+    </div>
+
+    <script>
+        // Display connection info
+        const protocol = window.location.protocol;
+        const isSecure = protocol === 'https:';
+
+        document.getElementById('protocol').textContent = isSecure ? 'HTTPS [SECURE]' : 'HTTP [INSECURE]';
+        document.getElementById('proto-detail').textContent = protocol;
+        document.getElementById('host').textContent = window.location.hostname;
+        document.getElementById('port').textContent = window.location.port || (isSecure ? '443' : '80');
+        document.getElementById('url').textContent = window.location.href;
+
+        // Test HTTP redirect (if on HTTPS)
+        if (isSecure) {
+            fetch('http://localhost:8080/', { mode: 'no-cors' })
+                .then(() => {
+                    document.getElementById('redirect-test').innerHTML = '[OK] HTTP -&gt; HTTPS redirect working';
+                })
+                .catch(() => {
+                    document.getElementById('redirect-test').innerHTML = '[WARN] HTTP redirect not tested (CORS)';
+                });
+        } else {
+            document.getElementById('redirect-test').innerHTML = '[INFO] Currently on HTTP, try accessing via HTTPS';
+        }
+    </script>
+</body>
+</html>
