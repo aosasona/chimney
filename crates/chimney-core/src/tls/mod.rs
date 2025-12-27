@@ -9,6 +9,7 @@ pub mod manual;
 use std::{path::Path, sync::Arc};
 
 use log::{debug, info};
+use rustls::crypto::CryptoProvider;
 use tokio_rustls::TlsAcceptor;
 
 use crate::{config::Config, error::ServerError};
@@ -30,6 +31,9 @@ impl TlsManager {
     /// Create a new TLS manager from the configuration
     pub async fn new(config: Arc<Config>) -> Result<Self, ServerError> {
         debug!("Initializing TLS manager");
+
+        // Install default crypto provider if not already installed
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
         let mut sni_resolver = SniResolver::new();
         let mut acme_managers = Vec::new();
