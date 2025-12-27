@@ -93,7 +93,31 @@ chimney serve -c path/to/config/chimney.toml
 
 ## HTTPS Configuration
 
-Chimney supports HTTPS with manual certificate configuration. Automatic certificate issuance via ACME is planned but not yet implemented.
+Chimney supports HTTPS with both manual certificates and automatic certificate issuance via ACME (Let's Encrypt).
+
+### Automatic Certificate Issuance (ACME)
+
+Chimney can automatically obtain and renew TLS certificates from Let's Encrypt using the ACME protocol. Configure ACME for a site in your site's `chimney.toml`:
+
+```toml
+# sites/example/chimney.toml
+root = "."
+domain_names = ["example.com", "www.example.com"]
+
+[https_config]
+enabled = true
+auto_issue = true               # Enable automatic certificate issuance
+auto_redirect = true            # Automatically redirect HTTP to HTTPS
+acme_email = "admin@example.com"
+# acme_directory = "https://acme-v02.api.letsencrypt.org/directory"  # Default (production)
+```
+
+**Important Notes:**
+- Uses TLS-ALPN-01 validation (challenges are served on port 443)
+- Certificates are cached in `.chimney/certs/` directory
+- Automatic renewal happens in the background
+- For testing, use Let's Encrypt staging: `acme_directory = "https://acme-staging-v02.api.letsencrypt.org/directory"`
+- Port 443 must be accessible from the internet for ACME validation
 
 ### Manual Certificates
 
@@ -132,21 +156,12 @@ When HTTPS is enabled:
 
 Chimney supports Server Name Indication (SNI), allowing multiple sites with different certificates on the same server. Each site can have its own certificate configuration.
 
-### Future: Automatic Certificate Issuance
+### Mixed Configurations
 
-Automatic certificate issuance via ACME (Let's Encrypt) is planned but not yet implemented. When available, you'll be able to configure it like this:
-
-```toml
-# Future configuration (not yet implemented)
-[https_config]
-enabled = true
-auto_issue = true
-auto_redirect = true
-acme_email = "admin@example.com"
-# acme_directory = "https://acme-v02.api.letsencrypt.org/directory"  # Default
-```
-
-For now, please use manual certificates as shown above.
+You can mix ACME and manual certificates across different sites:
+- Some sites can use ACME for automatic certificate management
+- Other sites can use manual certificates
+- All sites benefit from SNI-based certificate selection
 
 ## Why not \[this other proxy/server\]?
 
@@ -159,4 +174,4 @@ This is most definitely not what you want, and if it is, give it a go and let me
 I would love to hear from people who are actively using this mainly for bug fixes and feature suggestions, I may or may not add your desired feature if it doesn't fit any of the goals.
 
 > [!NOTE]
-> HTTPS is now supported with manual certificates. Automatic certificate issuance via ACME (Let's Encrypt) is planned for a future release. See the HTTPS Configuration section above for details.
+> HTTPS is fully supported with both manual certificates and automatic certificate issuance via ACME (Let's Encrypt). See the HTTPS Configuration section above for details.
