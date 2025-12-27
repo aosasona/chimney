@@ -3,6 +3,9 @@ name = "chimney-cli"
 version = "1.0.2"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 chimney = { path = "../chimney-core" }
 chrono = { workspace = true }

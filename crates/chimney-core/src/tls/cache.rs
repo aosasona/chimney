@@ -23,6 +23,21 @@ fn validate_site_name(site_name: &str) -> Result<(), ServerError> {
     Ok(())
 }
 
+/// Helper to get a safe display path for error messages (doesn't leak full absolute paths)
+fn safe_display_path(full_path: &Path) -> String {
+    // Try to make it relative to current directory, otherwise just show the file name
+    std::env::current_dir()
+        .ok()
+        .and_then(|cwd| full_path.strip_prefix(&cwd).ok())
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| {
+            full_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| full_path.display().to_string())
+        })
+}
+
 /// Create the certificate directory for a site
 pub fn create_cert_directory(site_name: &str, cert_dir: &Path) -> Result<PathBuf, ServerError> {
     // Validate site name to prevent path traversal
@@ -32,12 +47,12 @@ pub fn create_cert_directory(site_name: &str, cert_dir: &Path) -> Result<PathBuf
 
     fs::create_dir_all(&site_cert_dir).map_err(|e| {
         ServerError::CertificateDirectoryCreationFailed {
-            path: format!(".chimney/certs/{}", site_name),  // Don't leak full path
+            path: safe_display_path(&site_cert_dir),
             message: e.to_string(),
         }
     })?;
 
-    Ok(site_cert_dir)
+    return Ok(site_cert_dir);
 }
 
 /// Save certificate and key to disk (atomic write)
@@ -55,35 +70,31 @@ pub fn save_certificate(
 
     // Write certificate
     let temp_cert = site_cert_dir.join(".cert.pem.tmp");
-    fs::write(&temp_cert, cert_pem).map_err(|e| ServerError::TlsInitializationFailed(format!(
-        "Failed to write certificate: {}",
-        e
-    )))?;
-    fs::rename(&temp_cert, &cert_path).map_err(|e| ServerError::TlsInitializationFailed(format!(
-        "Failed to move certificate: {}",
-        e
-    )))?;
+    fs::write(&temp_cert, cert_pem).map_err(|e| {
+        ServerError::TlsInitializationFailed(format!("Failed to write certificate: {e}"))
+    })?;
+    fs::rename(&temp_cert, &cert_path).map_err(|e| {
+        ServerError::TlsInitializationFailed(format!("Failed to move certificate: {e}"))
+    })?;
 
     // Write private key with restricted permissions
     let temp_key = site_cert_dir.join(".key.pem.tmp");
-    fs::write(&temp_key, key_pem).map_err(|e| ServerError::TlsInitializationFailed(format!(
-        "Failed to write private key: {}",
-        e
-    )))?;
+    fs::write(&temp_key, key_pem).map_err(|e| {
+        ServerError::TlsInitializationFailed(format!("Failed to write private key: {e}"))
+    })?;
 
     // Set restrictive permissions on private key
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let mut perms = fs::metadata(&temp_key)
-            .map_err(|e| ServerError::TlsInitializationFailed(format!(
-                "Failed to get key file permissions: {}",
-                e
-            )))?
+            .map_err(|e| {
+                ServerError::TlsInitializationFailed(format!("Failed to get key file permissions: {e}"))
+            })?
             .permissions();
         perms.set_mode(0o600);  // Owner read/write only
         fs::set_permissions(&temp_key, perms).map_err(|e| {
-            ServerError::TlsInitializationFailed(format!("Failed to set key file permissions: {}", e))
+            ServerError::TlsInitializationFailed(format!("Failed to set key file permissions: {e}"))
         })?;
     }
 
@@ -91,15 +102,15 @@ pub fn save_certificate(
     // additional dependencies (winapi). Consider using proper ACLs for production.
     // For now, Windows users should ensure proper NTFS permissions manually.
 
-    fs::rename(&temp_key, &key_path).map_err(|e| ServerError::TlsInitializationFailed(format!(
-        "Failed to move private key: {}",
-        e
-    )))?;
+    fs::rename(&temp_key, &key_path).map_err(|e| {
+        ServerError::TlsInitializationFailed(format!("Failed to move private key: {e}"))
+    })?;
 
-    Ok(())
+    return Ok(());
 }
 
 /// Load cached certificate and key from disk
+#[allow(clippy::type_complexity)]
 pub fn load_cached_certificate(
     site_name: &str,
     cert_dir: &Path,
@@ -116,12 +127,12 @@ pub fn load_cached_certificate(
     }
 
     let cert_pem = fs::read(&cert_path).map_err(|e| ServerError::InvalidCertificateFile {
-        path: format!(".chimney/certs/{}/cert.pem", site_name),  // Don't leak full path
+        path: safe_display_path(&cert_path),
         message: e.to_string(),
     })?;
 
     let key_pem = fs::read(&key_path).map_err(|e| ServerError::InvalidPrivateKeyFile {
-        path: format!(".chimney/certs/{}/key.pem", site_name),  // Don't leak full path
+        path: safe_display_path(&key_path),
         message: e.to_string(),
     })?;
 

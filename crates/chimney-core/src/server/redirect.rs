@@ -71,9 +71,9 @@ impl RedirectService {
         let uri = req.uri();
         let path_and_query = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
 
-        let location = format!("https://{}{}", host, path_and_query);
+        let location = format!("https://{host}{path_and_query}");
 
-        debug!("Redirecting to HTTPS: {}", location);
+        debug!("Redirecting to HTTPS: {location}");
 
         Response::builder()
             .status(StatusCode::MOVED_PERMANENTLY)

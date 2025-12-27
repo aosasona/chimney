@@ -24,7 +24,7 @@ fn validate_cert_path(path: &Path, file_type: &str) -> Result<PathBuf, ServerErr
     let canonical = path.canonicalize().map_err(|e| {
         ServerError::InvalidCertificateFile {
             path: path.display().to_string(),
-            message: format!("Cannot access {}: {}", file_type, e),
+            message: format!("Cannot access {file_type}: {e}"),
         }
     })?;
 
@@ -32,7 +32,7 @@ fn validate_cert_path(path: &Path, file_type: &str) -> Result<PathBuf, ServerErr
     if !canonical.is_file() {
         return Err(ServerError::InvalidCertificateFile {
             path: path.display().to_string(),
-            message: format!("{} path is not a file", file_type),
+            message: format!("{file_type} path is not a file"),
         });
     }
 
@@ -60,7 +60,7 @@ pub fn load_certificate_chain(path: &Path) -> Result<Vec<CertificateDer<'static>
 
     certs_result.map_err(|e| ServerError::InvalidCertificateFile {
         path: path.display().to_string(),
-        message: format!("Failed to parse certificate: {}", e),
+        message: format!("Failed to parse certificate: {e}"),
     })
 }
 
@@ -78,14 +78,14 @@ pub fn load_private_key(path: &Path) -> Result<PrivateKeyDer<'static>, ServerErr
     let key = private_key(&mut reader)
         .map_err(|e| ServerError::InvalidPrivateKeyFile {
             path: path.display().to_string(),
-            message: format!("Failed to parse private key: {}", e),
+            message: format!("Failed to parse private key: {e}"),
         })?
         .ok_or_else(|| ServerError::InvalidPrivateKeyFile {
             path: path.display().to_string(),
             message: "No private key found in file".to_string(),
         })?;
 
-    Ok(key)
+    return Ok(key);
 }
 
 /// Load a certified key from certificate and key files
@@ -99,11 +99,11 @@ pub fn load_certified_key(
 
     // Create a signing key using the default crypto provider (aws_lc_rs)
     let signing_key = rustls::crypto::aws_lc_rs::sign::any_supported_type(&key)
-        .map_err(|e| ServerError::TlsInitializationFailed(format!("Invalid private key: {}", e)))?;
+        .map_err(|e| ServerError::TlsInitializationFailed(format!("Invalid private key: {e}")))?;
 
     let certified_key = CertifiedKey::new(certs, signing_key);
 
-    Ok(Arc::new(certified_key))
+    return Ok(Arc::new(certified_key));
 }
 
 /// Build a rustls ServerConfig from certificate and key files
@@ -118,9 +118,9 @@ pub fn build_server_config(
     let config = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(certs, key)
-        .map_err(|e| ServerError::TlsInitializationFailed(format!("Invalid certificate or key: {}", e)))?;
+        .map_err(|e| ServerError::TlsInitializationFailed(format!("Invalid certificate or key: {e}")))?;
 
-    Ok(config)
+    return Ok(config);
 }
 
 #[cfg(test)]

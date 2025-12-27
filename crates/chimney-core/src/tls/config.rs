@@ -35,7 +35,7 @@ pub fn process_site_https_config(site: &Site) -> Result<Option<TlsConfig>, Serve
 
     // Validate the configuration
     https_config.validate(&site.name).map_err(|e| {
-        ServerError::TlsInitializationFailed(format!("Invalid HTTPS config: {}", e))
+        ServerError::TlsInitializationFailed(format!("Invalid HTTPS config: {e}"))
     })?;
 
     // Determine the mode

@@ -6,6 +6,9 @@ description = "Rust library for building static file servers based on the Chimne
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aosasona/chimney"
 
+[lints]
+workspace = true
+
 [dependencies]
 chrono = { workspace = true }
 env_logger = { workspace = true }

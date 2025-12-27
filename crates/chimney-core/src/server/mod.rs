@@ -197,7 +197,7 @@ impl Server {
     async fn run_http_only(&self) -> Result<(), ServerError> {
         let listener = self.make_tcp_listener().await?;
         let socket_addr = self.get_socket_address().await?;
-        info!("HTTP server listening on {}", socket_addr);
+        info!("HTTP server listening on {socket_addr}");
 
         // Graceful shutdown handling for the Hyper server
         let graceful = hyper_util::server::graceful::GracefulShutdown::new();
@@ -235,29 +235,35 @@ impl Server {
 
         // Create HTTP listener (configured port)
         let http_port = config.port;
-        let http_addr = format!("{}:{}", config.host, http_port)
+        let http_addr = format!("{}:{http_port}", config.host)
             .parse::<SocketAddr>()
-            .map_err(|e| ServerError::InvalidRawSocketAddress {
-                address: format!("{}:{}", config.host, http_port),
-                message: e.to_string(),
+            .map_err(|e| {
+                let host = &config.host;
+                ServerError::InvalidRawSocketAddress {
+                    address: format!("{host}:{http_port}"),
+                    message: e.to_string(),
+                }
             })?;
         let http_listener = TcpListener::bind(http_addr)
             .await
             .map_err(ServerError::FailedToBind)?;
-        info!("HTTP server listening on {}", http_addr);
+        info!("HTTP server listening on {http_addr}");
 
         // Create HTTPS listener (port 443)
         let https_port = 443;
-        let https_addr = format!("{}:{}", config.host, https_port)
+        let https_addr = format!("{}:{https_port}", config.host)
             .parse::<SocketAddr>()
-            .map_err(|e| ServerError::InvalidRawSocketAddress {
-                address: format!("{}:{}", config.host, https_port),
-                message: e.to_string(),
+            .map_err(|e| {
+                let host = &config.host;
+                ServerError::InvalidRawSocketAddress {
+                    address: format!("{host}:{https_port}"),
+                    message: e.to_string(),
+                }
             })?;
         let https_listener = TcpListener::bind(https_addr)
             .await
             .map_err(ServerError::FailedToBind)?;
-        info!("HTTPS server listening on {}", https_addr);
+        info!("HTTPS server listening on {https_addr}");
 
         // Graceful shutdown handling
         let graceful = hyper_util::server::graceful::GracefulShutdown::new();

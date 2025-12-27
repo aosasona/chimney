@@ -111,6 +111,11 @@ pub struct Config {
     #[serde(default)]
     pub log_level: Option<LogLevel>,
 
+    /// Optional directory for caching certificates (default: <config_dir>/.chimney/certs or ./certs)
+    /// Users can specify an absolute or relative path for certificate storage
+    #[serde(default)]
+    pub cache_directory: Option<String>,
+
     /// The various site configurations
     #[serde(skip_deserializing, skip_serializing_if = "Sites::is_empty")]
     pub sites: Sites,
@@ -133,6 +138,7 @@ impl Default for Config {
             host_detection: HostDetectionStrategy::default(),
             sites_directory: Config::default_sites_dir(),
             log_level: Some(LogLevel::default()),
+            cache_directory: None,
             sites: Sites::default(),
             resolved_host_header: None,
             config_file_path: None,
@@ -215,27 +221,32 @@ impl Config {
     ///
     /// # Library Usage
     ///
-    /// When using Chimney as a library, you can optionally set `config_file_path` to control
-    /// where certificates are cached:
+    /// When using Chimney as a library, you can optionally set `cache_directory` or `config_file_path`
+    /// to control where certificates are cached:
     ///
     /// ```ignore
     /// let mut config = Config::default();
+    /// config.cache_directory = Some("/var/cache/chimney/certs".to_string());
+    /// // OR
     /// config.config_file_path = Some(PathBuf::from("/path/to/config.toml"));
     /// ```
     pub fn cert_directory(&self) -> PathBuf {
+        // Priority 1: Use explicitly configured cache_directory
+        if let Some(cache_dir) = &self.cache_directory {
+            return PathBuf::from(cache_dir);
+        }
+
+        // Priority 2: Use config file's parent directory + .chimney/certs
         if let Some(config_path) = &self.config_file_path {
-            // Use parent directory of config file
-            config_path
+            return config_path
                 .parent()
                 .unwrap_or_else(|| Path::new("."))
                 .join(".chimney")
-                .join("certs")
-        } else {
-            // Fallback to sites directory (default behavior for library usage)
-            PathBuf::from(&self.sites_directory)
-                .join(".chimney")
-                .join("certs")
+                .join("certs");
         }
+
+        // Priority 3: Fallback to current directory + certs
+        return PathBuf::from("certs");
     }
 }
 

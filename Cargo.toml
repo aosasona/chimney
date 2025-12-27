@@ -12,6 +12,12 @@ homepage = "https://github.com/aosasona/chimney"
 repository = "https://github.com/aosasona/chimney"
 readme = "README.md"
 
+[workspace.lints.clippy]
+# Allow explicit returns (prefer `return Ok()` over bare `Ok()`)
+needless_return = "allow"
+# Allow `new()` without implementing Default
+new_without_default = "allow"
+
 [workspace.dependencies]
 tokio = { version = "1.45.1", features = [
 	"net",

@@ -106,7 +106,7 @@ impl TlsManager {
 
                         // Add certificate for each domain
                         for domain in &tls_config.domains {
-                            debug!("Adding manual certificate for domain: {}", domain);
+                            debug!("Adding manual certificate for domain: {domain}");
                             sni_resolver.add_cert(domain.clone(), certified_key.clone());
                         }
                     }

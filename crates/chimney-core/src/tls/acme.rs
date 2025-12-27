@@ -41,17 +41,13 @@ impl AcmeManager {
         directory_url: String,
         cache_dir: &Path,
     ) -> Result<Self, ServerError> {
-        info!(
-            "Initializing ACME for site '{}' with domains: {:?}",
-            site_name, domains
-        );
-        info!("Using ACME directory: {}", directory_url);
+        info!("Initializing ACME for site '{site_name}' with domains: {domains:?}");
+        info!("Using ACME directory: {directory_url}");
 
         // Validate site name to prevent path traversal
         if site_name.contains("..") || site_name.contains('/') || site_name.contains('\\') {
             return Err(ServerError::TlsInitializationFailed(format!(
-                "Invalid site name '{}': contains path traversal characters",
-                site_name
+                "Invalid site name '{site_name}': contains path traversal characters"
             )));
         }
 
@@ -68,7 +64,7 @@ impl AcmeManager {
 
         // Create ACME configuration
         let config = AcmeConfig::new(domains.clone())
-            .contact_push(format!("mailto:{}", email))
+            .contact_push(format!("mailto:{email}"))
             .directory(directory_url)
             .cache(DirCache::new(site_cache_dir));
 
@@ -83,26 +79,23 @@ impl AcmeManager {
             loop {
                 match state.next().await {
                     Some(Ok(event)) => {
-                        info!("ACME event for site '{}': {:?}", site_name_clone, event);
+                        info!("ACME event for site '{site_name_clone}': {event:?}");
                     }
                     Some(Err(err)) => {
-                        error!("ACME error for site '{}': {:?}", site_name_clone, err);
+                        error!("ACME error for site '{site_name_clone}': {err:?}");
                     }
                     None => {
-                        info!("ACME state stream ended for site '{}'", site_name_clone);
+                        info!("ACME state stream ended for site '{site_name_clone}'");
                         break;
                     }
                 }
             }
         });
 
-        info!(
-            "ACME manager initialized for site '{}' with {} domain(s)",
-            site_name,
-            domains.len()
-        );
+        let domain_count = domains.len();
+        info!("ACME manager initialized for site '{site_name}' with {domain_count} domain(s)");
 
-        Ok(Self {
+        return Ok(Self {
             site_name,
             domains,
             acceptor,

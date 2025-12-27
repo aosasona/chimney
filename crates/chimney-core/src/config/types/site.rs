@@ -63,7 +63,7 @@ impl Https {
         let has_manual = self.cert_file.is_some() || self.key_file.is_some();
         if self.auto_issue && has_manual {
             return Err(ChimneyError::ConfigError {
-                field: format!("sites.{}.https_config", site_name),
+                field: format!("sites.{site_name}.https_config"),
                 message: "Cannot use both auto_issue and manual certificates".to_string(),
             });
         }
@@ -71,23 +71,21 @@ impl Https {
         // Check if ACME email is provided when auto_issue is enabled
         if self.auto_issue && self.acme_email.is_none() {
             return Err(ChimneyError::ConfigError {
-                field: format!("sites.{}.https_config.acme_email", site_name),
+                field: format!("sites.{site_name}.https_config.acme_email"),
                 message: "acme_email is required when auto_issue is enabled".to_string(),
             });
         }
 
         // Check if both cert and key are provided for manual certs
-        if has_manual {
-            if self.cert_file.is_none() || self.key_file.is_none() {
-                return Err(ChimneyError::ConfigError {
-                    field: format!("sites.{}.https_config", site_name),
-                    message: "Both cert_file and key_file must be provided for manual certificates"
-                        .to_string(),
-                });
-            }
+        if has_manual && (self.cert_file.is_none() || self.key_file.is_none()) {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{site_name}.https_config"),
+                message: "Both cert_file and key_file must be provided for manual certificates"
+                    .to_string(),
+            });
         }
 
-        Ok(())
+        return Ok(());
     }
 }
 
