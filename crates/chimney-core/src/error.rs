@@ -68,4 +68,32 @@ pub enum ServerError {
 
     #[error("Failed to update configuration: {0}")]
     ConfigUpdateFailed(#[from] SendError<Arc<Config>>),
+
+    // TLS-related errors
+    #[error("TLS handshake failed: {0}")]
+    TlsHandshakeFailed(String),
+
+    #[error("TLS not configured but HTTPS connection attempted")]
+    TlsNotConfigured,
+
+    #[error("Failed to initialize TLS: {0}")]
+    TlsInitializationFailed(String),
+
+    #[error("ACME certificate issuance failed: {0}")]
+    AcmeCertificateIssuanceFailed(String),
+
+    #[error("Invalid certificate file at `{path}`: {message}")]
+    InvalidCertificateFile { path: String, message: String },
+
+    #[error("Invalid private key file at `{path}`: {message}")]
+    InvalidPrivateKeyFile { path: String, message: String },
+
+    #[error("Both auto_issue and manual certificates configured for site `{site}`")]
+    ConflictingTlsConfig { site: String },
+
+    #[error("ACME email required when auto_issue is enabled for site `{site}`")]
+    AcmeEmailRequired { site: String },
+
+    #[error("Failed to create certificate directory at `{path}`: {message}")]
+    CertificateDirectoryCreationFailed { path: String, message: String },
 }

@@ -31,6 +31,13 @@ pub struct Https {
 
     /// The path to the CA bundle file (optional)
     pub ca_file: Option<String>,
+
+    /// Email address for ACME registration (required when auto_issue is true)
+    pub acme_email: Option<String>,
+
+    /// ACME directory URL (default: Let's Encrypt production)
+    #[serde(default = "Https::default_acme_directory")]
+    pub acme_directory: String,
 }
 
 impl Https {
@@ -44,6 +51,43 @@ impl Https {
 
     pub fn default_auto_issue() -> bool {
         true
+    }
+
+    pub fn default_acme_directory() -> String {
+        "https://acme-v02.api.letsencrypt.org/directory".to_string()
+    }
+
+    /// Validates the HTTPS configuration
+    pub fn validate(&self, site_name: &str) -> Result<(), ChimneyError> {
+        // Check if both auto_issue and manual certs are configured
+        let has_manual = self.cert_file.is_some() || self.key_file.is_some();
+        if self.auto_issue && has_manual {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{}.https_config", site_name),
+                message: "Cannot use both auto_issue and manual certificates".to_string(),
+            });
+        }
+
+        // Check if ACME email is provided when auto_issue is enabled
+        if self.auto_issue && self.acme_email.is_none() {
+            return Err(ChimneyError::ConfigError {
+                field: format!("sites.{}.https_config.acme_email", site_name),
+                message: "acme_email is required when auto_issue is enabled".to_string(),
+            });
+        }
+
+        // Check if both cert and key are provided for manual certs
+        if has_manual {
+            if self.cert_file.is_none() || self.key_file.is_none() {
+                return Err(ChimneyError::ConfigError {
+                    field: format!("sites.{}.https_config", site_name),
+                    message: "Both cert_file and key_file must be provided for manual certificates"
+                        .to_string(),
+                });
+            }
+        }
+
+        Ok(())
     }
 }
 

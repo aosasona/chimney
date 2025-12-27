@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -119,6 +119,10 @@ pub struct Config {
     /// This serves as a cache for automatic detection
     #[serde(skip_serializing, skip_deserializing)]
     resolved_host_header: Option<String>,
+
+    /// The path to the configuration file (used to determine cert directory)
+    #[serde(skip_serializing, skip_deserializing)]
+    pub config_file_path: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -131,6 +135,7 @@ impl Default for Config {
             log_level: Some(LogLevel::default()),
             sites: Sites::default(),
             resolved_host_header: None,
+            config_file_path: None,
         }
     }
 }
@@ -191,6 +196,27 @@ impl Config {
         }
 
         self.resolved_host_header = Some(header);
+    }
+}
+
+// TLS certificate directory resolution
+impl Config {
+    /// Returns the directory where certificates should be stored
+    /// This is based on the config file location, falling back to sites directory
+    pub fn cert_directory(&self) -> PathBuf {
+        if let Some(config_path) = &self.config_file_path {
+            // Use parent directory of config file
+            config_path
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(".chimney")
+                .join("certs")
+        } else {
+            // Fallback to sites directory
+            PathBuf::from(&self.sites_directory)
+                .join(".chimney")
+                .join("certs")
+        }
     }
 }
 

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue view:*)",
+      "Bash(cat:*)",
+      "Bash(cargo build:*)"
+    ]
+  }
+}

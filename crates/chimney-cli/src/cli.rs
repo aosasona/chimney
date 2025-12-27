@@ -122,7 +122,10 @@ impl Cli {
         let fs = filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
             .map_err(CliError::Filesystem)?;
 
-        let server = Server::new(Arc::new(fs), Arc::new(config));
+        // Use new_with_tls to enable automatic TLS support
+        let server = Server::new_with_tls(Arc::new(fs), Arc::new(config))
+            .await
+            .map_err(|e| CliError::Generic(format!("Failed to create server: {e}")))?;
 
         // Start the server
         server
@@ -194,6 +197,9 @@ impl Cli {
         let mut config = config::toml::Toml::from(config_content.as_str())
             .parse()
             .map_err(CliError::Chimney)?;
+
+        // Track config file path for certificate directory resolution
+        config.config_file_path = Some(path.clone());
 
         self.load_sites_configurations(&mut config)?;
 

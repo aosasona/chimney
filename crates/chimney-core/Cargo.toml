@@ -20,6 +20,12 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 
+# TLS and ACME support
+tokio-rustls = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+tokio-rustls-acme = { workspace = true }
+
 [features]
 default = ["toml"]
 toml = ["dep:toml"]
