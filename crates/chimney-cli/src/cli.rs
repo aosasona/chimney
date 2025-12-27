@@ -25,8 +25,13 @@ pub enum Commands {
     /// Start the server with the provided configuration
     Serve {
         /// Path to the configuration file
-        #[arg(short, long, help = "Path to the Chimney configuration file")]
-        config_path: Option<String>,
+        #[arg(
+            short,
+            long = "config",
+            alias = "config-path",
+            help = "Path to the Chimney configuration file"
+        )]
+        config: Option<String>,
     },
 
     /// Create a new chimney configuration file in the target directory
@@ -96,8 +101,8 @@ impl Cli {
     /// Execute the CLI command based on the parsed arguments.
     pub async fn execute(&self) -> Result<(), error::CliError> {
         match &self.command {
-            Commands::Serve { config_path } => {
-                let config = self.load_config(config_path)?;
+            Commands::Serve { config } => {
+                let config = self.load_config(config)?;
 
                 let config_log_level = config.log_level.clone();
                 self.set_log_level(config_log_level);
