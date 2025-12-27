@@ -24,7 +24,7 @@ use self::{
 pub struct TlsManager {
     config: Arc<Config>,
     sni_resolver: SniResolver,
-    acme_managers: Vec<AcmeManager>,
+    acme_manager: Option<AcmeManager>,
 }
 
 impl TlsManager {
@@ -36,10 +36,12 @@ impl TlsManager {
         let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
         let mut sni_resolver = SniResolver::new();
-        let mut acme_managers = Vec::new();
+        let mut acme_domains = Vec::new();
+        let mut acme_email = None;
+        let mut acme_directory = None;
         let cert_dir = config.cert_directory();
 
-        // Process each site's HTTPS configuration
+        // First pass: collect manual certs and ACME domains
         for site in config.sites.values() {
             if let Some(tls_config) = process_site_https_config(site)? {
                 info!(
@@ -71,28 +73,58 @@ impl TlsManager {
                         email,
                         directory_url,
                     } => {
-                        // Initialize ACME manager for this site
+                        // Collect ACME domains
                         info!(
-                            "Initializing ACME for site '{}' with email: {}",
-                            tls_config.site_name, email
+                            "Collecting ACME domains for site '{}': {:?}",
+                            tls_config.site_name, tls_config.domains
                         );
+                        acme_domains.extend(tls_config.domains.clone());
 
-                        let acme_manager = AcmeManager::new(
-                            tls_config.site_name.clone(),
-                            tls_config.domains.clone(),
-                            email,
-                            directory_url,
-                            &cert_dir,
-                        )
-                        .await?;
-
-                        acme_managers.push(acme_manager);
+                        // Use the first ACME configuration's email and directory
+                        // (all sites should use the same ACME settings)
+                        if acme_email.is_none() {
+                            acme_email = Some(email);
+                            acme_directory = Some(directory_url);
+                        }
                     }
                 }
             }
         }
 
-        if sni_resolver.is_empty() && acme_managers.is_empty() {
+        // Create single ACME manager for all ACME domains
+        let acme_manager = if !acme_domains.is_empty() {
+            let email = acme_email.ok_or_else(|| {
+                ServerError::TlsInitializationFailed(
+                    "ACME email not configured".to_string()
+                )
+            })?;
+            let directory = acme_directory.ok_or_else(|| {
+                ServerError::TlsInitializationFailed(
+                    "ACME directory not configured".to_string()
+                )
+            })?;
+
+            info!(
+                "Creating ACME manager for {} domain(s): {:?}",
+                acme_domains.len(),
+                acme_domains
+            );
+
+            Some(
+                AcmeManager::new(
+                    "acme-manager".to_string(),
+                    acme_domains,
+                    email,
+                    directory,
+                    &cert_dir,
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
+
+        if sni_resolver.is_empty() && acme_manager.is_none() {
             return Err(ServerError::TlsInitializationFailed(
                 "No valid TLS certificates configured".to_string(),
             ));
@@ -101,7 +133,7 @@ impl TlsManager {
         Ok(Self {
             config,
             sni_resolver,
-            acme_managers,
+            acme_manager,
         })
     }
 
@@ -115,22 +147,29 @@ impl TlsManager {
         })
     }
 
-    /// Build a TLS acceptor with the configured certificates
-    pub fn build_acceptor(&self) -> Result<Arc<TlsAcceptor>, ServerError> {
-        debug!("Building TLS acceptor");
+    /// Check if ACME is enabled
+    pub fn has_acme(&self) -> bool {
+        self.acme_manager.is_some()
+    }
 
-        // Note: ACME support is not yet fully implemented
-        // For now, we only support manual certificates
-        if !self.acme_managers.is_empty() {
-            info!(
-                "ACME configuration detected for {} site(s), but ACME is not yet fully implemented",
-                self.acme_managers.len()
-            );
-            info!("Please use manual certificates for now");
+    /// Get the ACME acceptor if ACME is enabled
+    pub fn acme_acceptor(&self) -> Option<&tokio_rustls_acme::AcmeAcceptor> {
+        self.acme_manager.as_ref().map(|m| m.acceptor())
+    }
+
+    /// Build a TLS acceptor with manual certificates only
+    ///
+    /// Note: This is only used when ACME is not enabled.
+    /// When ACME is enabled, use acme_acceptor() instead.
+    pub fn build_acceptor(&self) -> Result<Arc<TlsAcceptor>, ServerError> {
+        debug!("Building TLS acceptor for manual certificates");
+
+        if self.sni_resolver.is_empty() {
+            return Err(ServerError::TlsInitializationFailed(
+                "No manual certificates configured".to_string(),
+            ));
         }
 
-        // Build TLS acceptor with manual certificates only
-        info!("Building TLS acceptor with manual certificates");
         let acceptor = build_tls_acceptor(self.sni_resolver.clone())?;
         Ok(Arc::new(acceptor))
     }

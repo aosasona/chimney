@@ -1,35 +1,39 @@
-// ACME client integration for automatic certificate issuance
+// ACME client integration for automatic certificate issuance using tokio-rustls-acme
 //
-// NOTE: Full ACME implementation with tokio-rustls-acme 0.8 is a work in progress.
-// The API has changed significantly and requires additional integration work.
-// For now, manual certificates are fully supported and recommended for production use.
-//
-// To use manual certificates, configure your site with:
-// ```toml
-// [https_config]
-// enabled = true
-// auto_issue = false
-// cert_file = "/path/to/cert.pem"
-// key_file = "/path/to/key.pem"
-// ```
+// This module provides automatic TLS certificate management using Let's Encrypt via the ACME protocol.
+// It uses TLS-ALPN-01 validation, which serves ACME challenges on the same port as regular TLS traffic.
 
 use std::path::Path;
+use std::sync::Arc;
 
-use log::info;
+use futures_util::StreamExt;
+use log::{error, info};
+use rustls::server::ResolvesServerCert;
+use tokio_rustls_acme::caches::DirCache;
+use tokio_rustls_acme::{AcmeAcceptor, AcmeConfig};
 
 use crate::error::ServerError;
 
-/// ACME manager for a site (stub for future implementation)
+/// ACME manager for a site
+///
+/// Manages automatic certificate issuance and renewal using the ACME protocol.
+/// Uses TLS-ALPN-01 validation which serves challenges on the HTTPS port.
 pub struct AcmeManager {
     site_name: String,
     domains: Vec<String>,
-    _email: String,
-    _directory_url: String,
-    _cache_dir: std::path::PathBuf,
+    acceptor: AcmeAcceptor,
+    resolver: Arc<dyn ResolvesServerCert>,
 }
 
 impl AcmeManager {
-    /// Create a new ACME manager (stub)
+    /// Create a new ACME manager
+    ///
+    /// # Arguments
+    /// * `site_name` - Name of the site for logging
+    /// * `domains` - List of domain names to request certificates for
+    /// * `email` - Contact email address (will be prefixed with "mailto:")
+    /// * `directory_url` - ACME directory URL (e.g., Let's Encrypt production or staging)
+    /// * `cache_dir` - Directory to cache certificates and account information
     pub async fn new(
         site_name: String,
         domains: Vec<String>,
@@ -38,20 +42,83 @@ impl AcmeManager {
         cache_dir: &Path,
     ) -> Result<Self, ServerError> {
         info!(
-            "ACME requested for site '{}' with domains: {:?}, but full ACME support is not yet implemented",
+            "Initializing ACME for site '{}' with domains: {:?}",
             site_name, domains
         );
+        info!("Using ACME directory: {}", directory_url);
+
+        // Create cache directory for this site
+        let site_cache_dir = cache_dir.join(&site_name);
+        if !site_cache_dir.exists() {
+            std::fs::create_dir_all(&site_cache_dir).map_err(|e| {
+                ServerError::CertificateDirectoryCreationFailed {
+                    path: site_cache_dir.display().to_string(),
+                    message: e.to_string(),
+                }
+            })?;
+        }
+
+        // Create ACME configuration
+        let config = AcmeConfig::new(domains.clone())
+            .contact_push(format!("mailto:{}", email))
+            .directory(directory_url)
+            .cache(DirCache::new(site_cache_dir));
+
+        // Create ACME state
+        let mut state = config.state();
+        let acceptor = state.acceptor();
+        let resolver = state.resolver();
+
+        // Spawn background task to handle ACME events (certificate issuance/renewal)
+        let site_name_clone = site_name.clone();
+        tokio::spawn(async move {
+            loop {
+                match state.next().await {
+                    Some(Ok(event)) => {
+                        info!("ACME event for site '{}': {:?}", site_name_clone, event);
+                    }
+                    Some(Err(err)) => {
+                        error!("ACME error for site '{}': {:?}", site_name_clone, err);
+                    }
+                    None => {
+                        info!("ACME state stream ended for site '{}'", site_name_clone);
+                        break;
+                    }
+                }
+            }
+        });
+
         info!(
-            "Please use manual certificates for now. See documentation for configuration."
+            "ACME manager initialized for site '{}' with {} domain(s)",
+            site_name,
+            domains.len()
         );
 
         Ok(Self {
             site_name,
             domains,
-            _email: email,
-            _directory_url: directory_url,
-            _cache_dir: cache_dir.to_path_buf(),
+            acceptor,
+            resolver,
         })
     }
 
+    /// Get the ACME acceptor for handling TLS connections
+    pub fn acceptor(&self) -> &AcmeAcceptor {
+        &self.acceptor
+    }
+
+    /// Get the ACME resolver for certificate resolution
+    pub fn resolver(&self) -> Arc<dyn ResolvesServerCert> {
+        self.resolver.clone()
+    }
+
+    /// Get the domains managed by this ACME manager
+    pub fn domains(&self) -> &[String] {
+        &self.domains
+    }
+
+    /// Get the site name
+    pub fn site_name(&self) -> &str {
+        &self.site_name
+    }
 }
