@@ -92,12 +92,10 @@ root = "public"
 domain_names = ["localhost", "127.0.0.1"]
 
 [https_config]
-enabled = true
-auto_issue = false       # Manual mode (not ACME)
-auto_redirect = true     # HTTP → HTTPS redirect
-
+# Manual certificates (providing cert_file + key_file uses manual mode instead of ACME)
 cert_file = "../../localhost-cert.pem"
 key_file = "../../localhost-key.pem"
+# auto_redirect = true   # Default: redirect HTTP → HTTPS
 ```
 
 ## 🔐 Certificate Details
@@ -161,10 +159,10 @@ The server runs with `log_level = "debug"` to see:
 After verifying manual certificates work:
 
 1. **Test with real domain + ACME**
-   - Change `auto_issue = true`
-   - Add `acme_email = "your@email.com"`
+   - Enable `[https]` globally with `acme_email`
+   - Remove `cert_file`/`key_file` from site config (or remove `[https_config]` entirely)
    - Point domain to your server
-   - Let's Encrypt will issue real certificates
+   - Let's Encrypt will issue real certificates automatically
 
 2. **Test wildcard certificates**
    - Generate cert for `*.example.local`

@@ -48,20 +48,20 @@ sites_directory = "sites"
 
 Create `sites/example/chimney.toml`:
 
+Global config (`chimney.toml`):
+```toml
+[https]
+enabled = true
+acme_email = "admin@example.com"
+# Use staging for testing (no rate limits)
+acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
+```
+
+Site config (`sites/example/chimney.toml`):
 ```toml
 root = "public"
 domain_names = ["example.com", "www.example.com"]
-
-[https_config]
-enabled = true
-auto_issue = true  # Enable ACME
-auto_redirect = true  # Redirect HTTP → HTTPS
-
-# REQUIRED: Email for Let's Encrypt notifications
-acme_email = "admin@example.com"
-
-# Use staging for testing (no rate limits)
-acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
+# No [https_config] needed - ACME is automatic when global HTTPS is enabled
 ```
 
 ### Option 2: Let's Encrypt Production (After Testing)
@@ -72,14 +72,11 @@ acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
 - Use staging first!
 
 ```toml
-[https_config]
+[https]
 enabled = true
-auto_issue = true
-auto_redirect = true
 acme_email = "admin@example.com"
-
-# Production (default, can be omitted)
-acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"
+# Production is the default, can be omitted
+# acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"
 ```
 
 ## Running the Test
@@ -218,20 +215,23 @@ log_level = "debug"
 sites_directory = "sites"
 EOF
 
-# 3. Create site config
-cat > acme-test/sites/mysite/chimney.toml <<EOF
-root = "public"
-domain_names = ["mysite.example.com"]
+# 3. Create global config with ACME
+cat > acme-test/acme.toml <<EOF
+sites_directory = "sites"
 
-[https_config]
+[https]
 enabled = true
-auto_issue = true
-auto_redirect = true
 acme_email = "admin@example.com"
 acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
 EOF
 
-# 4. Create test page
+# 4. Create site config
+cat > acme-test/sites/mysite/chimney.toml <<EOF
+root = "public"
+domain_names = ["mysite.example.com"]
+EOF
+
+# 5. Create test page
 cat > acme-test/sites/mysite/public/index.html <<EOF
 <!DOCTYPE html>
 <html>
@@ -243,11 +243,11 @@ cat > acme-test/sites/mysite/public/index.html <<EOF
 </html>
 EOF
 
-# 5. Run server (requires sudo)
+# 6. Run server (requires sudo)
 cd acme-test
 sudo chimney-cli serve --config acme.toml
 
-# 6. Test from browser
+# 7. Test from browser
 # Visit: https://mysite.example.com
 ```
 
@@ -261,25 +261,27 @@ sudo chimney-cli serve --config acme.toml
 
 ## Multi-Domain Setup
 
-You can host multiple sites with different certificates:
+You can host multiple sites - all share the same ACME configuration:
 
+Global config (`chimney.toml`):
 ```toml
-# sites/site1/chimney.toml
-domain_names = ["site1.com", "www.site1.com"]
-[https_config]
+[https]
 enabled = true
-auto_issue = true
-acme_email = "admin@site1.com"
-
-# sites/site2/chimney.toml
-domain_names = ["site2.com", "www.site2.com"]
-[https_config]
-enabled = true
-auto_issue = true
-acme_email = "admin@site2.com"
+acme_email = "admin@example.com"
 ```
 
-Each site gets its own certificate via SNI (Server Name Indication).
+Site configs:
+```toml
+# sites/site1/chimney.toml
+root = "public"
+domain_names = ["site1.com", "www.site1.com"]
+
+# sites/site2/chimney.toml
+root = "public"
+domain_names = ["site2.com", "www.site2.com"]
+```
+
+All domains are automatically issued certificates via ACME and routed via SNI (Server Name Indication).
 
 ## Wildcard Certificates
 

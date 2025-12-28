@@ -97,20 +97,17 @@ Chimney supports HTTPS with both manual certificates and automatic certificate i
 
 ### Automatic Certificate Issuance (ACME)
 
-Chimney can automatically obtain and renew TLS certificates from Let's Encrypt using the ACME protocol. Configure ACME for a site in your site's `chimney.toml`:
+Chimney can automatically obtain and renew TLS certificates from Let's Encrypt using the ACME protocol. Enable HTTPS globally in your main `chimney.toml`:
 
 ```toml
-# sites/example/chimney.toml
-root = "."
-domain_names = ["example.com", "www.example.com"]
-
-[https_config]
+# chimney.toml (main config)
+[https]
 enabled = true
-auto_issue = true               # Enable automatic certificate issuance
-auto_redirect = true            # Automatically redirect HTTP to HTTPS
 acme_email = "admin@example.com"
 # acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"  # Default (production)
 ```
+
+When global HTTPS is enabled, all sites automatically use ACME for certificate issuance. No per-site configuration is required for ACME mode.
 
 **Important Notes:**
 - Uses TLS-ALPN-01 validation (challenges are served on port 443)
@@ -121,7 +118,7 @@ acme_email = "admin@example.com"
 
 ### Manual Certificates
 
-To enable HTTPS for a site, configure the `https_config` section in your site's `chimney.toml`:
+To use manual certificates for a specific site instead of ACME, provide `cert_file` and `key_file` in the site's `chimney.toml`:
 
 ```toml
 # sites/example/chimney.toml
@@ -129,12 +126,10 @@ root = "."
 domain_names = ["example.com", "www.example.com"]
 
 [https_config]
-enabled = true
-auto_issue = false              # Set to false for manual certificates
-auto_redirect = true            # Automatically redirect HTTP to HTTPS
 cert_file = "/path/to/cert.pem"
 key_file = "/path/to/key.pem"
 # ca_file = "/path/to/ca.pem"   # Optional CA certificate
+# auto_redirect = true          # Default: redirect HTTP to HTTPS
 ```
 
 #### Generating Self-Signed Certificates (for testing)
