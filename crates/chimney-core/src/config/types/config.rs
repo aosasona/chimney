@@ -91,18 +91,62 @@ impl HostDetectionStrategy {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct HttpsConfig {
+    /// Whether HTTPS is enabled globally or not (default: true)
+    #[serde(default = "HttpsConfig::default_enabled")]
     pub enabled: bool,
+
+    /// The port number to bind the HTTPS server to (default: 8443)
+    /// See also `port` for the HTTP port
+    #[serde(default = "HttpsConfig::default_port")]
     pub port: u16,
+
+    #[serde(default = "HttpsConfig::default_cache_directory")]
+    /// The directory to cache TLS certificates in (for ACME)
+    /// Default: ~/.chimney/certs
     pub cache_directory: PathBuf,
+
+    #[serde(default = "HttpsConfig::default_acme_email")]
+    /// The email address to use for ACME account registration
+    pub acme_email: Option<String>,
+
+    /// The ACME directory URL to use (default: Let's Encrypt production)
+    /// See https://letsencrypt.org/docs/acme-endpoint/ for more details
+    /// Default: https://acme-v02.api.letsencrypt.org/directory
+    #[serde(default = "HttpsConfig::default_acme_directory")]
+    pub acme_directory_url: String,
 }
 
 impl Default for HttpsConfig {
     fn default() -> Self {
         HttpsConfig {
-            enabled: true,
-            port: 8443,
-            cache_directory: PathBuf::from("~/.chimney/certs"),
+            enabled: HttpsConfig::default_enabled(),
+            port: HttpsConfig::default_port(),
+            cache_directory: HttpsConfig::default_cache_directory(),
+            acme_email: HttpsConfig::default_acme_email(),
+            acme_directory_url: HttpsConfig::default_acme_directory(),
         }
+    }
+}
+
+impl HttpsConfig {
+    pub fn default_enabled() -> bool {
+        true
+    }
+
+    pub fn default_port() -> u16 {
+        8443
+    }
+
+    pub fn default_acme_email() -> Option<String> {
+        None
+    }
+
+    pub fn default_acme_directory() -> String {
+        "https://acme-v02.api.letsencrypt.org/directory".to_string()
+    }
+
+    pub fn default_cache_directory() -> PathBuf {
+        PathBuf::from("~/.chimney/certs")
     }
 }
 

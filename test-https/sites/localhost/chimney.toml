@@ -3,11 +3,9 @@ root = "public"
 domain_names = ["localhost", "127.0.0.1"]
 
 [https_config]
-enabled = true
-auto_issue = false  # Using manual certificates (ACME requires public domain)
 auto_redirect = true  # Redirect HTTP → HTTPS
 
-# Paths to self-signed certificates (relative to repo root or absolute)
+# Manual certificates (providing cert_file + key_file uses manual mode instead of ACME)
 cert_file = "test-https/localhost-cert.pem"
 key_file = "test-https/localhost-key.pem"
 

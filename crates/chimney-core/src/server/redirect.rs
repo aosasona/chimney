@@ -49,14 +49,30 @@ impl RedirectService {
             None => return false,
         };
 
-        // Check if the site has auto_redirect enabled
+        // Check if global HTTPS is enabled and site has auto_redirect enabled
         let config = self.config_handle.get();
-        if let Some(site) = config.sites.find_by_hostname(host) {
-            if let Some(https_config) = &site.https_config {
-                return https_config.enabled && https_config.auto_redirect;
-            }
+
+        // Global HTTPS must be enabled
+        let global_https_enabled = config
+            .https
+            .as_ref()
+            .map(|https| https.enabled)
+            .unwrap_or(false);
+
+        if !global_https_enabled {
+            return false;
         }
 
+        // Check site-specific auto_redirect (defaults to true)
+        if let Some(site) = config.sites.find_by_hostname(host) {
+            return site
+                .https_config
+                .as_ref()
+                .map(|https| https.auto_redirect)
+                .unwrap_or(true); // Default to true when no site-specific config
+        }
+
+        // Site not found, don't redirect
         false
     }
 

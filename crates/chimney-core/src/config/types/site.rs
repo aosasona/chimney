@@ -8,76 +8,63 @@ use crate::{error::ChimneyError, with_leading_slash};
 
 use super::{Domain, DomainIndex};
 
-/// Represents the HTTPS configuration options
+/// Per-site HTTPS configuration overrides.
+///
+/// When global `[https]` is enabled, all sites automatically get HTTPS.
+/// This struct allows per-site overrides:
+/// - Provide `cert_file` + `key_file` to use manual certificates instead of ACME
+/// - Set `auto_redirect = false` to disable HTTP→HTTPS redirect for this site
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Https {
-    /// Whether HTTPS is enabled or not
-    #[serde(default = "Https::default_enabled")]
-    pub enabled: bool,
-
-    /// Whether to automatically issue certificates using Let's Encrypt or similar services
-    #[serde(default = "Https::default_auto_issue")]
-    pub auto_issue: bool,
-
-    /// Whether to automatically redirect HTTP requests to HTTPS
+    /// Whether to automatically redirect HTTP requests to HTTPS (default: true)
     #[serde(default = "Https::default_auto_redirect")]
     pub auto_redirect: bool,
 
-    /// The path to the SSL certificate file
+    /// The path to the SSL certificate file (for manual mode)
     pub cert_file: Option<String>,
 
-    /// The path to the SSL key file
+    /// The path to the SSL key file (for manual mode)
     pub key_file: Option<String>,
 
-    /// The path to the CA bundle file (optional)
+    /// The path to the CA bundle file (optional, for manual mode)
     pub ca_file: Option<String>,
+}
 
-    /// Email address for ACME registration (required when auto_issue is true)
-    pub acme_email: Option<String>,
+/// ACME configuration extracted from the root Config.
+/// This consolidates ACME settings that apply to all sites.
+#[derive(Debug, Clone)]
+pub struct AcmeConfig {
+    pub email: Option<String>,
+    pub directory_url: Option<String>,
+}
 
-    /// ACME directory URL (default: Let's Encrypt production)
-    #[serde(default = "Https::default_acme_directory")]
-    pub acme_directory: String,
+impl AcmeConfig {
+    pub fn from_config(config: &crate::config::Config) -> Self {
+        let https_config = config.https.as_ref();
+
+        Self {
+            email: https_config.and_then(|https| https.acme_email.clone()),
+            directory_url: https_config.map(|https| https.acme_directory_url.clone()),
+        }
+    }
 }
 
 impl Https {
-    pub fn default_enabled() -> bool {
-        false
-    }
-
     pub fn default_auto_redirect() -> bool {
         true
     }
 
-    pub fn default_auto_issue() -> bool {
-        true
+    /// Returns true if manual certificates are configured
+    pub fn is_manual(&self) -> bool {
+        self.cert_file.is_some() && self.key_file.is_some()
     }
 
-    pub fn default_acme_directory() -> String {
-        "https://acme-v02.api.letsencrypt.org/directory".to_string()
-    }
-
-    /// Validates the HTTPS configuration
+    /// Validates the per-site HTTPS configuration
     pub fn validate(&self, site_name: &str) -> Result<(), ChimneyError> {
-        // Check if both auto_issue and manual certs are configured
-        let has_manual = self.cert_file.is_some() || self.key_file.is_some();
-        if self.auto_issue && has_manual {
-            return Err(ChimneyError::ConfigError {
-                field: format!("sites.{site_name}.https_config"),
-                message: "Cannot use both auto_issue and manual certificates".to_string(),
-            });
-        }
-
-        // Check if ACME email is provided when auto_issue is enabled
-        if self.auto_issue && self.acme_email.is_none() {
-            return Err(ChimneyError::ConfigError {
-                field: format!("sites.{site_name}.https_config.acme_email"),
-                message: "acme_email is required when auto_issue is enabled".to_string(),
-            });
-        }
-
-        // Check if both cert and key are provided for manual certs
-        if has_manual && (self.cert_file.is_none() || self.key_file.is_none()) {
+        // Check if only one of cert/key is provided (incomplete manual config)
+        let has_cert = self.cert_file.is_some();
+        let has_key = self.key_file.is_some();
+        if has_cert != has_key {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{site_name}.https_config"),
                 message: "Both cert_file and key_file must be provided for manual certificates"
@@ -85,7 +72,7 @@ impl Https {
             });
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 

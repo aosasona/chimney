@@ -77,8 +77,8 @@ impl Server {
     /// Create a new server instance with TLS support enabled
     ///
     /// This constructor automatically detects HTTPS configuration and initializes:
-    /// - ACME certificate management (if `auto_issue = true` in any site)
-    /// - Manual certificate loading (if certificate files are provided)
+    /// - ACME certificate management (for sites without manual certificates)
+    /// - Manual certificate loading (for sites with `cert_file` and `key_file`)
     /// - SNI for multi-domain support
     ///
     /// Use this instead of [`Server::new`] when any site has HTTPS enabled.

@@ -13,7 +13,7 @@ pub fn parse_root_config() {
     let config = toml_parser.parse().expect("Failed to parse TOML config");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.http_port, 80);
+    assert_eq!(config.port, 80);
     assert_eq!(config.sites_directory, "./sites");
     assert_eq!(config.log_level, Some(LogLevel::Debug));
     assert!(config.sites.is_empty(), "Expected no sites in the config");
@@ -29,7 +29,7 @@ pub fn parse_empty_root_config() {
         .expect("Failed to parse empty TOML config");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.http_port, 8080);
+    assert_eq!(config.port, 8080);
     assert_eq!(
         config.sites_directory,
         std::env::current_dir()
@@ -55,7 +55,7 @@ pub fn parse_partial_root_config() {
         .expect("Failed to parse partial TOML config");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.http_port, 8080);
+    assert_eq!(config.port, 8080);
     assert_eq!(
         config.sites_directory,
         std::env::current_dir()
@@ -78,7 +78,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
     root = "./public"
     domain_names = ["example.com"]
     fallback_file = "index.html"
-    https_config = { enabled = true, cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
+    https_config = { cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
     "#;
 
     let toml_parser = Toml::new(input);
@@ -87,7 +87,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
         .expect("Failed to parse TOML config with embedded site");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.http_port, 8080);
+    assert_eq!(config.port, 8080);
     assert_eq!(
         config.sites_directory,
         std::env::current_dir()
@@ -115,7 +115,6 @@ pub fn parse_embedded_site_config_with_manual_https() {
     );
 
     let https_config = site.https_config.as_ref().unwrap();
-    assert!(https_config.enabled, "HTTPS should be enabled");
     assert_eq!(https_config.cert_file, Some("tls/cert.pem".to_string()));
     assert_eq!(https_config.key_file, Some("tls/key.pem".to_string()));
     assert!(https_config.ca_file.is_none(), "CA file should not be set");
@@ -128,7 +127,7 @@ pub fn parse_standalone_site_config_with_manual_https() {
     root = "./public"
     domain_names = ["example.com"]
     fallback_file = "index.html"
-    https_config = { enabled = true, cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
+    https_config = { cert_file = "tls/cert.pem", key_file = "tls/key.pem" }
     "#;
 
     let site = Site::from_string(name.into(), input)
@@ -144,7 +143,6 @@ pub fn parse_standalone_site_config_with_manual_https() {
     );
 
     let https_config = site.https_config.as_ref().unwrap();
-    assert!(https_config.enabled, "HTTPS should be enabled");
     assert_eq!(https_config.cert_file, Some("tls/cert.pem".to_string()));
     assert_eq!(https_config.key_file, Some("tls/key.pem".to_string()));
     assert!(https_config.ca_file.is_none(), "CA file should not be set");

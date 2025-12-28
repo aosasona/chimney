@@ -8,21 +8,8 @@ root = "public"
 domain_names = ["example.com", "www.example.com"]
 
 [https_config]
-enabled = true
-auto_issue = true  # Enable automatic certificate issuance via ACME
-auto_redirect = true  # Redirect HTTP → HTTPS
-
-# REQUIRED: Your email for Let's Encrypt notifications
-# Replace with your actual email!
-acme_email = "admin@example.com"
-
-# Use staging for testing (no rate limits)
-# Remove this line or change to production URL when ready
-acme_directory = "https://acme-staging-v02.api.letsencrypt.org/directory"
-
-# For production (after testing with staging):
-# acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
-# Or just omit acme_directory (production is default)
+auto_redirect = true # Redirect HTTP → HTTPS
+# No cert_file/key_file = automatic ACME certificate issuance
 
 # Optional: Response headers
 [response_headers]

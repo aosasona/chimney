@@ -109,14 +109,14 @@ enabled = true
 auto_issue = true               # Enable automatic certificate issuance
 auto_redirect = true            # Automatically redirect HTTP to HTTPS
 acme_email = "admin@example.com"
-# acme_directory = "https://acme-v02.api.letsencrypt.org/directory"  # Default (production)
+# acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"  # Default (production)
 ```
 
 **Important Notes:**
 - Uses TLS-ALPN-01 validation (challenges are served on port 443)
 - Certificates are cached in `.chimney/certs/` directory
 - Automatic renewal happens in the background
-- For testing, use Let's Encrypt staging: `acme_directory = "https://acme-staging-v02.api.letsencrypt.org/directory"`
+- For testing, use Let's Encrypt staging: `acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"`
 - Port 443 must be accessible from the internet for ACME validation
 
 ### Manual Certificates

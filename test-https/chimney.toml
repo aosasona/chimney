@@ -11,16 +11,30 @@
 #   - HTTPS: https://localhost (accept security warning for self-signed cert)
 
 host = "0.0.0.0"
-port = 8080  # HTTP listener
+port = 8080      # HTTP listener
 # HTTPS automatically runs on port 443
 
 sites_directory = "test-https/sites"
 log_level = "debug"
 
+[https]
+# REQUIRED: Your email for Let's Encrypt notifications
+# Replace with your actual email!
+acme_email = "admin@example.com"
+
+# Use staging for testing (no rate limits)
+# Remove this line or change to production URL when ready
+acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# For production (after testing with staging):
+# acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"
+# Or just omit acme_directory (production is default)
+
+
 # NOTE: Site-specific HTTPS configuration is in:
 #   sites/localhost/chimney.toml
 #
 # The HTTPS config includes:
-#   - Manual certificate mode (auto_issue = false)
+#   - Manual certificate mode (cert_file + key_file provided)
 #   - Self-signed certificates for localhost
 #   - Automatic HTTP → HTTPS redirect

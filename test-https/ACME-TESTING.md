@@ -61,7 +61,7 @@ auto_redirect = true  # Redirect HTTP → HTTPS
 acme_email = "admin@example.com"
 
 # Use staging for testing (no rate limits)
-acme_directory = "https://acme-staging-v02.api.letsencrypt.org/directory"
+acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
 ```
 
 ### Option 2: Let's Encrypt Production (After Testing)
@@ -79,7 +79,7 @@ auto_redirect = true
 acme_email = "admin@example.com"
 
 # Production (default, can be omitted)
-acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
+acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"
 ```
 
 ## Running the Test
@@ -228,7 +228,7 @@ enabled = true
 auto_issue = true
 auto_redirect = true
 acme_email = "admin@example.com"
-acme_directory = "https://acme-staging-v02.api.letsencrypt.org/directory"
+acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
 EOF
 
 # 4. Create test page

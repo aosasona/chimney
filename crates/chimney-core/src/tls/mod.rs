@@ -53,12 +53,15 @@ use std::{path::Path, sync::Arc};
 use log::{debug, info};
 use tokio_rustls::TlsAcceptor;
 
-use crate::{config::Config, error::ServerError};
+use crate::{
+    config::{AcmeConfig, Config},
+    error::ServerError,
+};
 
 use self::{
-    acceptor::{build_tls_acceptor, SniResolver},
+    acceptor::{SniResolver, build_tls_acceptor},
     acme::AcmeManager,
-    config::{process_site_https_config, TlsMode},
+    config::{TlsMode, process_site_https_config},
 };
 
 /// Coordinates all TLS operations including certificate loading, ACME, and SNI
@@ -78,71 +81,57 @@ impl TlsManager {
 
         let mut sni_resolver = SniResolver::new();
         let mut acme_domains = Vec::new();
-        let mut acme_email = None;
-        let mut acme_directory = None;
         let cert_dir = config.cert_directory();
 
-        // First pass: collect manual certs and ACME domains
+        let acme_config = AcmeConfig::from_config(&config);
+
+        // Process all sites - when global HTTPS is enabled, all sites get HTTPS
         for site in config.sites.values() {
-            if let Some(tls_config) = process_site_https_config(site)? {
-                info!(
-                    "Configuring TLS for site '{}' with domains: {:?}",
-                    tls_config.site_name, tls_config.domains
-                );
+            let tls_config = process_site_https_config(site)?;
 
-                match tls_config.mode {
-                    TlsMode::Manual {
-                        cert_file,
-                        key_file,
-                        ca_file,
-                    } => {
-                        // Load manual certificate
-                        let cert_path = Path::new(&cert_file);
-                        let key_path = Path::new(&key_file);
-                        let ca_path = ca_file.as_deref().map(Path::new);
+            info!(
+                "Configuring TLS for site '{}' with domains: {:?}",
+                tls_config.site_name, tls_config.domains
+            );
 
-                        let certified_key =
-                            manual::load_certified_key(cert_path, key_path, ca_path)?;
+            match tls_config.mode {
+                TlsMode::Manual {
+                    cert_file,
+                    key_file,
+                    ca_file,
+                } => {
+                    // Load manual certificate
+                    let cert_path = Path::new(&cert_file);
+                    let key_path = Path::new(&key_file);
+                    let ca_path = ca_file.as_deref().map(Path::new);
 
-                        // Add certificate for each domain
-                        for domain in &tls_config.domains {
-                            debug!("Adding manual certificate for domain: {domain}");
-                            sni_resolver.add_cert(domain.clone(), certified_key.clone());
-                        }
+                    let certified_key =
+                        manual::load_certified_key(cert_path, key_path, ca_path)?;
+
+                    // Add certificate for each domain
+                    for domain in &tls_config.domains {
+                        debug!("Adding manual certificate for domain: {domain}");
+                        sni_resolver.add_cert(domain.clone(), certified_key.clone());
                     }
-                    TlsMode::Acme {
-                        email,
-                        directory_url,
-                    } => {
-                        // Collect ACME domains
-                        info!(
-                            "Collecting ACME domains for site '{}': {:?}",
-                            tls_config.site_name, tls_config.domains
-                        );
-                        acme_domains.extend(tls_config.domains.clone());
-
-                        // Use the first ACME configuration's email and directory
-                        // (all sites should use the same ACME settings)
-                        if acme_email.is_none() {
-                            acme_email = Some(email);
-                            acme_directory = Some(directory_url);
-                        }
-                    }
+                }
+                TlsMode::Acme => {
+                    // Collect domains for ACME issuance
+                    info!(
+                        "Collecting ACME domains for site '{}': {:?}",
+                        tls_config.site_name, tls_config.domains
+                    );
+                    acme_domains.extend(tls_config.domains.clone());
                 }
             }
         }
 
-        // Create single ACME manager for all ACME domains
+        // Create single ACME manager for all ACME domains using global config
         let acme_manager = if !acme_domains.is_empty() {
-            let email = acme_email.ok_or_else(|| {
-                ServerError::TlsInitializationFailed(
-                    "ACME email not configured".to_string()
-                )
+            let email = acme_config.email.clone().ok_or_else(|| {
+                ServerError::TlsInitializationFailed("ACME email not configured".to_string())
             })?;
-            let directory = acme_directory.ok_or_else(|| {
-                ServerError::TlsInitializationFailed(
-                    "ACME directory not configured".to_string()
-                )
+            let directory = acme_config.directory_url.clone().ok_or_else(|| {
+                ServerError::TlsInitializationFailed("ACME directory not configured".to_string())
             })?;
 
             info!(
@@ -178,14 +167,13 @@ impl TlsManager {
         })
     }
 
-    /// Check if any site has HTTPS enabled
+    /// Check if HTTPS is enabled globally
     pub fn is_tls_enabled(config: &Config) -> bool {
-        config.sites.values().any(|site| {
-            site.https_config
-                .as_ref()
-                .map(|https| https.enabled)
-                .unwrap_or(false)
-        })
+        config
+            .https
+            .as_ref()
+            .map(|https| https.enabled)
+            .unwrap_or(false)
     }
 
     /// Check if ACME is enabled
