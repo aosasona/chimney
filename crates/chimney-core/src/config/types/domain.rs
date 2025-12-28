@@ -98,9 +98,26 @@ impl DomainIndex {
     }
 
     /// Looks up a site name by domain
-    /// If the domain is not found, and there is a wildcard domain, it returns the wildcard site name
+    /// Tries exact match first, then without port, then falls back to wildcard
     pub fn get(&self, domain: &Domain) -> Option<&String> {
-        self.inner.get(domain).or_else(|| self.get_wildcard())
+        // Try exact match first (with port if present)
+        if let Some(site) = self.inner.get(domain) {
+            return Some(site);
+        }
+
+        // Try matching without port (hostname only)
+        if domain.port.is_some() {
+            let without_port = Domain {
+                name: domain.name.clone(),
+                port: None,
+            };
+            if let Some(site) = self.inner.get(&without_port) {
+                return Some(site);
+            }
+        }
+
+        // Fall back to wildcard
+        self.get_wildcard()
     }
 
     /// Checks if the index contains a domain
@@ -170,5 +187,41 @@ mod tests {
         };
         assert!(index.get(&example_domain).is_some());
         assert_eq!(index.get(&example_domain).unwrap(), "wildcard_site");
+    }
+
+    #[test]
+    fn test_domain_lookup_ignores_port() {
+        use crate::config::types::domain::{Domain, DomainIndex};
+
+        let mut index = DomainIndex::default();
+
+        // Site configured without port
+        let domain_no_port = Domain {
+            name: "localhost".to_string(),
+            port: None,
+        };
+        index
+            .insert(domain_no_port, "localhost_site".to_string())
+            .unwrap();
+
+        // Request comes in with port - should still match
+        let domain_with_port = Domain {
+            name: "localhost".to_string(),
+            port: Some(8080),
+        };
+        assert_eq!(
+            index.get(&domain_with_port),
+            Some(&"localhost_site".to_string())
+        );
+
+        // Request without port should also match
+        let domain_no_port = Domain {
+            name: "localhost".to_string(),
+            port: None,
+        };
+        assert_eq!(
+            index.get(&domain_no_port),
+            Some(&"localhost_site".to_string())
+        );
     }
 }
