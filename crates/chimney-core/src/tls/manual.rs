@@ -92,8 +92,16 @@ pub fn load_private_key(path: &Path) -> Result<PrivateKeyDer<'static>, ServerErr
 pub fn load_certified_key(
     cert_file: &Path,
     key_file: &Path,
-    _ca_file: Option<&Path>,
+    ca_file: Option<&Path>,
 ) -> Result<Arc<CertifiedKey>, ServerError> {
+    // CA bundles are not yet supported
+    if let Some(ca) = ca_file {
+        return Err(ServerError::TlsInitializationFailed(format!(
+            "CA bundles not yet supported: {}",
+            ca.display()
+        )));
+    }
+
     let certs = load_certificate_chain(cert_file)?;
     let key = load_private_key(key_file)?;
 
@@ -110,8 +118,16 @@ pub fn load_certified_key(
 pub fn build_server_config(
     cert_file: &Path,
     key_file: &Path,
-    _ca_file: Option<&Path>,
+    ca_file: Option<&Path>,
 ) -> Result<ServerConfig, ServerError> {
+    // CA bundles are not yet supported
+    if let Some(ca) = ca_file {
+        return Err(ServerError::TlsInitializationFailed(format!(
+            "CA bundles not yet supported: {}",
+            ca.display()
+        )));
+    }
+
     let certs = load_certificate_chain(cert_file)?;
     let key = load_private_key(key_file)?;
 

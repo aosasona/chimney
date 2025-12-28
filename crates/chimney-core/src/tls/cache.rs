@@ -74,6 +74,8 @@ pub fn save_certificate(
         ServerError::TlsInitializationFailed(format!("Failed to write certificate: {e}"))
     })?;
     fs::rename(&temp_cert, &cert_path).map_err(|e| {
+        // Clean up temp file on failure
+        let _ = fs::remove_file(&temp_cert);
         ServerError::TlsInitializationFailed(format!("Failed to move certificate: {e}"))
     })?;
 
@@ -98,11 +100,21 @@ pub fn save_certificate(
         })?;
     }
 
-    // NOTE: On Windows, file permissions are managed via ACLs and require
-    // additional dependencies (winapi). Consider using proper ACLs for production.
-    // For now, Windows users should ensure proper NTFS permissions manually.
+    #[cfg(windows)]
+    {
+        // WARN: On Windows, file permissions are managed via ACLs and require
+        // additional dependencies (winapi). For production use, please manually
+        // restrict access to the private key file using NTFS permissions.
+        log::warn!(
+            "Private key permissions not restricted on Windows. \
+             Please manually restrict access to: {}",
+            safe_display_path(&temp_key)
+        );
+    }
 
     fs::rename(&temp_key, &key_path).map_err(|e| {
+        // Clean up temp file on failure
+        let _ = fs::remove_file(&temp_key);
         ServerError::TlsInitializationFailed(format!("Failed to move private key: {e}"))
     })?;
 

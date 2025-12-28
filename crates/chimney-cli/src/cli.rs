@@ -271,7 +271,28 @@ impl Cli {
             // Append the site's configured root directory to the canonicalized site path
             // This preserves the "root" setting from the site's chimney.toml
             let full_root = site_root.join(&site_config.root);
-            site_config.set_root_directory(full_root.to_string_lossy().to_string());
+
+            // Validate the path doesn't escape sites_directory
+            let canonical_full_root = full_root.canonicalize().map_err(|e| {
+                CliError::Generic(format!(
+                    "Invalid root path for site {}: {}",
+                    site_name, e
+                ))
+            })?;
+
+            let canonical_sites_dir = PathBuf::from(&config.sites_directory)
+                .canonicalize()
+                .map_err(|e| CliError::Generic(format!("Failed to resolve sites directory: {}", e)))?;
+
+            if !canonical_full_root.starts_with(&canonical_sites_dir) {
+                return Err(CliError::Generic(format!(
+                    "Site '{}' root path escapes sites directory: {}",
+                    site_name,
+                    canonical_full_root.display()
+                )));
+            }
+
+            site_config.set_root_directory(canonical_full_root.to_string_lossy().to_string());
             config.sites.add(site_config)?;
         }
 

@@ -12,6 +12,7 @@ use crate::{
     config::{Config, ConfigHandle},
     error::ServerError,
 };
+use tokio_rustls::TlsAcceptor;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Notify,
@@ -353,49 +354,22 @@ impl Server {
                 .ok_or(ServerError::TlsNotConfigured)?
                 .clone();
 
-            let acme_resolver = tls_manager
+            let resolver_for_handshake = tls_manager
                 .acme_resolver()
                 .ok_or(ServerError::TlsNotConfigured)?;
 
             // Perform ACME accept and serve in a separate task
             tokio::spawn(async move {
-                match acme_acceptor.accept(stream).await {
-                    Ok(None) => {
-                        // ACME TLS-ALPN-01 validation request was handled
-                        debug!("Handled ACME TLS-ALPN-01 validation request from {addr}");
-                    }
-                    Ok(Some(start_handshake)) => {
-                        // Regular TLS connection - complete the handshake
-                        debug!("Starting TLS handshake for regular connection from {addr}");
-
-                        let server_config = rustls::ServerConfig::builder()
-                            .with_no_client_auth()
-                            .with_cert_resolver(acme_resolver);
-
-                        match start_handshake
-                            .into_stream(std::sync::Arc::new(server_config))
-                            .await
-                        {
-                            Ok(tls_stream) => {
-                                debug!("TLS handshake successful for {addr}");
-
-                                let io = TokioIo::new(tls_stream);
-
-                                // Serve the connection over TLS
-                                if let Err(err) =
-                                    http1::Builder::new().serve_connection(io, redirect_svc).await
-                                {
-                                    error!("Failed to serve HTTPS connection: {err:?}");
-                                }
-                            }
-                            Err(e) => {
-                                error!("TLS handshake failed for {addr}: {e}");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        error!("ACME accept failed for {addr}: {e}");
-                    }
+                if let Err(e) = Self::handle_acme_connection_inner(
+                    stream,
+                    addr,
+                    acme_acceptor,
+                    resolver_for_handshake,
+                    redirect_svc,
+                )
+                .await
+                {
+                    error!("ACME connection handler failed for {addr}: {e}");
                 }
             });
         } else {
@@ -408,24 +382,82 @@ impl Server {
 
             // Perform TLS handshake and serve in a separate task
             tokio::spawn(async move {
-                let tls_stream = match tls_acceptor.accept(stream).await {
-                    Ok(stream) => stream,
-                    Err(e) => {
-                        error!("TLS handshake failed for {addr}: {e}");
-                        return;
-                    }
-                };
+                if let Err(e) =
+                    Self::handle_manual_tls_connection_inner(stream, addr, tls_acceptor, redirect_svc).await
+                {
+                    error!("Manual TLS connection handler failed for {addr}: {e}");
+                }
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Handle ACME connection inner logic (extracted for better error handling)
+    async fn handle_acme_connection_inner(
+        stream: TcpStream,
+        addr: SocketAddr,
+        acme_acceptor: tokio_rustls_acme::AcmeAcceptor,
+        resolver_for_handshake: Arc<dyn rustls::server::ResolvesServerCert>,
+        redirect_svc: redirect::RedirectService,
+    ) -> Result<(), ServerError> {
+        match acme_acceptor.accept(stream).await {
+            Ok(None) => {
+                // ACME TLS-ALPN-01 validation request was handled
+                debug!("Handled ACME TLS-ALPN-01 validation request from {addr}");
+            }
+            Ok(Some(start_handshake)) => {
+                // Regular TLS connection - complete the handshake
+                debug!("Starting TLS handshake for regular connection from {addr}");
+
+                let server_config = rustls::ServerConfig::builder()
+                    .with_no_client_auth()
+                    .with_cert_resolver(resolver_for_handshake);
+
+                let tls_stream = start_handshake
+                    .into_stream(std::sync::Arc::new(server_config))
+                    .await
+                    .map_err(|e| ServerError::TlsHandshakeFailed(e.to_string()))?;
 
                 debug!("TLS handshake successful for {addr}");
 
                 let io = TokioIo::new(tls_stream);
 
                 // Serve the connection over TLS
-                if let Err(err) = http1::Builder::new().serve_connection(io, redirect_svc).await {
-                    error!("Failed to serve HTTPS connection: {err:?}");
-                }
-            });
+                http1::Builder::new()
+                    .serve_connection(io, redirect_svc)
+                    .await
+                    .map_err(|e| ServerError::TlsHandshakeFailed(format!("Failed to serve HTTPS connection: {e:?}")))?;
+            }
+            Err(e) => {
+                return Err(ServerError::TlsHandshakeFailed(format!("ACME accept failed: {e}")));
+            }
         }
+
+        Ok(())
+    }
+
+    /// Handle manual TLS connection inner logic (extracted for better error handling)
+    async fn handle_manual_tls_connection_inner(
+        stream: TcpStream,
+        addr: SocketAddr,
+        tls_acceptor: Arc<TlsAcceptor>,
+        redirect_svc: redirect::RedirectService,
+    ) -> Result<(), ServerError> {
+        let tls_stream = tls_acceptor
+            .accept(stream)
+            .await
+            .map_err(|e| ServerError::TlsHandshakeFailed(e.to_string()))?;
+
+        debug!("TLS handshake successful for {addr}");
+
+        let io = TokioIo::new(tls_stream);
+
+        // Serve the connection over TLS
+        http1::Builder::new()
+            .serve_connection(io, redirect_svc)
+            .await
+            .map_err(|e| ServerError::TlsHandshakeFailed(format!("Failed to serve HTTPS connection: {e:?}")))?;
 
         Ok(())
     }

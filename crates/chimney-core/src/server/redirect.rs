@@ -1,6 +1,6 @@
 // HTTP→HTTPS redirect middleware
 
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, sync::Arc};
 
 use http_body_util::Full;
 use hyper::{
@@ -18,7 +18,7 @@ use super::service::Service;
 /// Redirect service that wraps the main service and handles HTTP→HTTPS redirects
 #[derive(Clone)]
 pub struct RedirectService {
-    inner: Service,
+    inner: Arc<Service>,
     config_handle: ConfigHandle,
     is_https: bool,
 }
@@ -27,7 +27,7 @@ impl RedirectService {
     /// Create a new redirect service
     pub fn new(inner: Service, config_handle: ConfigHandle, is_https: bool) -> Self {
         Self {
-            inner,
+            inner: Arc::new(inner),
             config_handle,
             is_https,
         }
