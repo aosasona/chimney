@@ -12,11 +12,11 @@ use crate::{
     config::{Config, ConfigHandle},
     error::ServerError,
 };
-use tokio_rustls::TlsAcceptor;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Notify,
 };
+use tokio_rustls::TlsAcceptor;
 
 const SHUTDOWN_WAIT_PERIOD: u64 = 15; // seconds
 
@@ -251,7 +251,11 @@ impl Server {
         info!("HTTP server listening on {http_addr}");
 
         // Create HTTPS listener (port 443)
-        let https_port = 443;
+        let https_port = if let Some(https_cfg) = &config.https {
+            https_cfg.port
+        } else {
+            443
+        };
         let https_addr = format!("{}:{https_port}", config.host)
             .parse::<SocketAddr>()
             .map_err(|e| {
@@ -314,8 +318,11 @@ impl Server {
 
         // Always use redirect service - it will only redirect if TLS is enabled and auto_redirect is true
         let is_https = false;
-        let redirect_svc =
-            redirect::RedirectService::new(self.service.clone(), self.config_handle.clone(), is_https);
+        let redirect_svc = redirect::RedirectService::new(
+            self.service.clone(),
+            self.config_handle.clone(),
+            is_https,
+        );
 
         let conn = http1::Builder::new().serve_connection(io, redirect_svc);
         let fut = graceful.watch(conn);
@@ -382,8 +389,13 @@ impl Server {
 
             // Perform TLS handshake and serve in a separate task
             tokio::spawn(async move {
-                if let Err(e) =
-                    Self::handle_manual_tls_connection_inner(stream, addr, tls_acceptor, redirect_svc).await
+                if let Err(e) = Self::handle_manual_tls_connection_inner(
+                    stream,
+                    addr,
+                    tls_acceptor,
+                    redirect_svc,
+                )
+                .await
                 {
                     error!("Manual TLS connection handler failed for {addr}: {e}");
                 }
@@ -427,10 +439,16 @@ impl Server {
                 http1::Builder::new()
                     .serve_connection(io, redirect_svc)
                     .await
-                    .map_err(|e| ServerError::TlsHandshakeFailed(format!("Failed to serve HTTPS connection: {e:?}")))?;
+                    .map_err(|e| {
+                        ServerError::TlsHandshakeFailed(format!(
+                            "Failed to serve HTTPS connection: {e:?}"
+                        ))
+                    })?;
             }
             Err(e) => {
-                return Err(ServerError::TlsHandshakeFailed(format!("ACME accept failed: {e}")));
+                return Err(ServerError::TlsHandshakeFailed(format!(
+                    "ACME accept failed: {e}"
+                )));
             }
         }
 
@@ -457,7 +475,9 @@ impl Server {
         http1::Builder::new()
             .serve_connection(io, redirect_svc)
             .await
-            .map_err(|e| ServerError::TlsHandshakeFailed(format!("Failed to serve HTTPS connection: {e:?}")))?;
+            .map_err(|e| {
+                ServerError::TlsHandshakeFailed(format!("Failed to serve HTTPS connection: {e:?}"))
+            })?;
 
         Ok(())
     }

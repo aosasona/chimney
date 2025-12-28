@@ -203,9 +203,6 @@ impl Cli {
             .parse()
             .map_err(CliError::Chimney)?;
 
-        // Track config file path for certificate directory resolution
-        config.config_file_path = Some(path.clone());
-
         self.load_sites_configurations(&mut config)?;
 
         return Ok(config);
@@ -274,15 +271,14 @@ impl Cli {
 
             // Validate the path doesn't escape sites_directory
             let canonical_full_root = full_root.canonicalize().map_err(|e| {
-                CliError::Generic(format!(
-                    "Invalid root path for site {}: {}",
-                    site_name, e
-                ))
+                CliError::Generic(format!("Invalid root path for site {site_name}: {e}"))
             })?;
 
             let canonical_sites_dir = PathBuf::from(&config.sites_directory)
                 .canonicalize()
-                .map_err(|e| CliError::Generic(format!("Failed to resolve sites directory: {}", e)))?;
+                .map_err(|e| {
+                    CliError::Generic(format!("Failed to resolve sites directory: {e}"))
+                })?;
 
             if !canonical_full_root.starts_with(&canonical_sites_dir) {
                 return Err(CliError::Generic(format!(

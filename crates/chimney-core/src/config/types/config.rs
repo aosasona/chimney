@@ -88,6 +88,24 @@ impl HostDetectionStrategy {
         matches!(self, HostDetectionStrategy::Auto)
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct HttpsConfig {
+    pub enabled: bool,
+    pub port: u16,
+    pub cache_directory: PathBuf,
+}
+
+impl Default for HttpsConfig {
+    fn default() -> Self {
+        HttpsConfig {
+            enabled: true,
+            port: 8443,
+            cache_directory: PathBuf::from("~/.chimney/certs"),
+        }
+    }
+}
+
 /// The core configuration options available
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
@@ -95,9 +113,14 @@ pub struct Config {
     #[serde(default = "Config::default_host")]
     pub host: IpAddr,
 
-    /// The port number to bind the server to (default: 8080)
+    /// The port number to bind the HTTP server to (default: 8080)
+    /// See also `https.port` for the HTTPS port
     #[serde(default = "Config::default_port")]
     pub port: u16,
+
+    /// The HTTPS configuration options (default: enabled on port 8443)
+    #[serde(default)]
+    pub https: Option<HttpsConfig>,
 
     /// The host detection options to use (default: "auto")
     #[serde(default)]
@@ -111,11 +134,6 @@ pub struct Config {
     #[serde(default)]
     pub log_level: Option<LogLevel>,
 
-    /// Optional directory for caching certificates (default: <config_dir>/.chimney/certs or ./certs)
-    /// Users can specify an absolute or relative path for certificate storage
-    #[serde(default)]
-    pub cache_directory: Option<String>,
-
     /// The various site configurations
     #[serde(skip_deserializing, skip_serializing_if = "Sites::is_empty")]
     pub sites: Sites,
@@ -124,10 +142,6 @@ pub struct Config {
     /// This serves as a cache for automatic detection
     #[serde(skip_serializing, skip_deserializing)]
     resolved_host_header: Option<String>,
-
-    /// The path to the configuration file (used to determine cert directory)
-    #[serde(skip_serializing, skip_deserializing)]
-    pub config_file_path: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -135,13 +149,12 @@ impl Default for Config {
         Config {
             host: Config::default_host(),
             port: Config::default_port(),
+            https: Some(HttpsConfig::default()),
             host_detection: HostDetectionStrategy::default(),
             sites_directory: Config::default_sites_dir(),
             log_level: Some(LogLevel::default()),
-            cache_directory: None,
             sites: Sites::default(),
             resolved_host_header: None,
-            config_file_path: None,
         }
     }
 }
@@ -154,6 +167,10 @@ impl Config {
 
     pub fn default_port() -> u16 {
         8080
+    }
+
+    pub fn default_https_port() -> Option<u16> {
+        Some(8443)
     }
 
     pub fn default_sites_dir() -> String {
@@ -207,46 +224,12 @@ impl Config {
 
 // TLS certificate directory resolution
 impl Config {
-    /// Returns the directory where certificates should be stored
-    ///
-    /// The certificate directory is determined as follows:
-    /// 1. If `config_file_path` is set (typically by the CLI), certificates are stored
-    ///    in `<config_directory>/.chimney/certs/`
-    /// 2. Otherwise (when used as a library), certificates are stored in
-    ///    `<sites_directory>/.chimney/certs/`
-    ///
-    /// For example:
-    /// - With config at `/etc/chimney/chimney.toml`: certs go to `/etc/chimney/.chimney/certs/`
-    /// - Without config_file_path and sites_directory="./sites": certs go to `./sites/.chimney/certs/`
-    ///
-    /// # Library Usage
-    ///
-    /// When using Chimney as a library, you can optionally set `cache_directory` or `config_file_path`
-    /// to control where certificates are cached:
-    ///
-    /// ```ignore
-    /// let mut config = Config::default();
-    /// config.cache_directory = Some("/var/cache/chimney/certs".to_string());
-    /// // OR
-    /// config.config_file_path = Some(PathBuf::from("/path/to/config.toml"));
-    /// ```
     pub fn cert_directory(&self) -> PathBuf {
-        // Priority 1: Use explicitly configured cache_directory
-        if let Some(cache_dir) = &self.cache_directory {
-            return PathBuf::from(cache_dir);
+        if let Some(https_config) = &self.https {
+            return https_config.cache_directory.clone();
         }
 
-        // Priority 2: Use config file's parent directory + .chimney/certs
-        if let Some(config_path) = &self.config_file_path {
-            return config_path
-                .parent()
-                .unwrap_or_else(|| Path::new("."))
-                .join(".chimney")
-                .join("certs");
-        }
-
-        // Priority 3: Fallback to current directory + certs
-        return PathBuf::from("certs");
+        PathBuf::from("~/.chimney/certs")
     }
 }
 

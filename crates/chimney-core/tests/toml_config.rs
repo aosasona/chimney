@@ -13,7 +13,7 @@ pub fn parse_root_config() {
     let config = toml_parser.parse().expect("Failed to parse TOML config");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.port, 80);
+    assert_eq!(config.http_port, 80);
     assert_eq!(config.sites_directory, "./sites");
     assert_eq!(config.log_level, Some(LogLevel::Debug));
     assert!(config.sites.is_empty(), "Expected no sites in the config");
@@ -29,7 +29,7 @@ pub fn parse_empty_root_config() {
         .expect("Failed to parse empty TOML config");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.port, 8080);
+    assert_eq!(config.http_port, 8080);
     assert_eq!(
         config.sites_directory,
         std::env::current_dir()
@@ -55,7 +55,7 @@ pub fn parse_partial_root_config() {
         .expect("Failed to parse partial TOML config");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.port, 8080);
+    assert_eq!(config.http_port, 8080);
     assert_eq!(
         config.sites_directory,
         std::env::current_dir()
@@ -87,7 +87,7 @@ pub fn parse_embedded_site_config_with_manual_https() {
         .expect("Failed to parse TOML config with embedded site");
 
     assert_eq!(config.host.to_string(), "0.0.0.0");
-    assert_eq!(config.port, 8080);
+    assert_eq!(config.http_port, 8080);
     assert_eq!(
         config.sites_directory,
         std::env::current_dir()
