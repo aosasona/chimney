@@ -25,17 +25,17 @@ fn validate_site_name(site_name: &str) -> Result<(), ServerError> {
 
 /// Helper to get a safe display path for error messages (doesn't leak full absolute paths)
 fn safe_display_path(full_path: &Path) -> String {
-    // Try to make it relative to current directory, otherwise just show the file name
-    std::env::current_dir()
-        .ok()
-        .and_then(|cwd| full_path.strip_prefix(&cwd).ok())
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| {
-            full_path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| full_path.display().to_string())
-        })
+    // Try relative to current directory
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Ok(relative) = full_path.strip_prefix(&cwd) {
+            return relative.display().to_string();
+        }
+    }
+    // Fall back to filename or full path
+    full_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| full_path.display().to_string())
 }
 
 /// Create the certificate directory for a site
