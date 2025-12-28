@@ -29,6 +29,7 @@ tokio = { version = "1.45.1", features = [
 	"signal",
 	"time",
 ] }
+tokio-util = "0.7"
 bytes = "1.10.1"
 chrono = "0.4.41"
 clap = { version = "4.5.39", features = ["derive"] }

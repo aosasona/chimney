@@ -21,6 +21,7 @@ tempfile = { workspace = true }
 toml = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 url = { workspace = true }
 
 # TLS and ACME support

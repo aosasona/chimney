@@ -11,6 +11,7 @@ use log::{error, info};
 use rustls::server::ResolvesServerCert;
 use tokio_rustls_acme::caches::DirCache;
 use tokio_rustls_acme::{AcmeAcceptor, AcmeConfig};
+use tokio_util::sync::CancellationToken;
 
 use crate::error::ServerError;
 
@@ -23,6 +24,7 @@ pub struct AcmeManager {
     domains: Vec<String>,
     acceptor: AcmeAcceptor,
     resolver: Arc<dyn ResolvesServerCert>,
+    cancel_token: CancellationToken,
 }
 
 impl AcmeManager {
@@ -73,20 +75,32 @@ impl AcmeManager {
         let acceptor = state.acceptor();
         let resolver = state.resolver();
 
+        // Create cancellation token for graceful shutdown
+        let cancel_token = CancellationToken::new();
+        let cancel_clone = cancel_token.clone();
+
         // Spawn background task to handle ACME events (certificate issuance/renewal)
         let site_name_clone = site_name.clone();
         tokio::spawn(async move {
             loop {
-                match state.next().await {
-                    Some(Ok(event)) => {
-                        info!("ACME event for site '{site_name_clone}': {event:?}");
-                    }
-                    Some(Err(err)) => {
-                        error!("ACME error for site '{site_name_clone}': {err:?}");
-                    }
-                    None => {
-                        info!("ACME state stream ended for site '{site_name_clone}'");
+                tokio::select! {
+                    _ = cancel_clone.cancelled() => {
+                        info!("ACME task cancelled for site '{site_name_clone}'");
                         break;
+                    }
+                    event = state.next() => {
+                        match event {
+                            Some(Ok(event)) => {
+                                info!("ACME event for site '{site_name_clone}': {event:?}");
+                            }
+                            Some(Err(err)) => {
+                                error!("ACME error for site '{site_name_clone}': {err:?}");
+                            }
+                            None => {
+                                info!("ACME state stream ended for site '{site_name_clone}'");
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -100,6 +114,7 @@ impl AcmeManager {
             domains,
             acceptor,
             resolver,
+            cancel_token,
         })
     }
 
@@ -121,5 +136,21 @@ impl AcmeManager {
     /// Get the site name
     pub fn site_name(&self) -> &str {
         &self.site_name
+    }
+
+    /// Cancel the background ACME task
+    ///
+    /// This should be called when shutting down the server to ensure
+    /// the background task is properly terminated.
+    pub fn shutdown(&self) {
+        info!("Shutting down ACME manager for site '{}'", self.site_name);
+        self.cancel_token.cancel();
+    }
+}
+
+impl Drop for AcmeManager {
+    fn drop(&mut self) {
+        // Automatically cancel the background task when AcmeManager is dropped
+        self.cancel_token.cancel();
     }
 }
