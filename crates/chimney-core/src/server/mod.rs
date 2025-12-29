@@ -185,7 +185,8 @@ impl Server {
         self.watch_for_shutdown().await;
 
         // Determine if we need dual listeners (HTTP + HTTPS)
-        if self.tls_acceptor.is_some() {
+        // Check for tls_manager to support both ACME and manual certificates
+        if self.tls_manager.is_some() {
             info!("TLS is enabled, starting dual listeners (HTTP + HTTPS)");
             self.run_dual_listeners().await
         } else {
