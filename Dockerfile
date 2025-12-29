@@ -1,8 +1,5 @@
 #------- Build the Rust binary -------#
-FROM rust:1.88 AS builder
-
-# Use "aarch64" if you are on M* Mac - --build-arg ARCH="aarch64"
-ARG ARCH="x86_64"
+FROM rust:1.88-slim AS builder
 
 WORKDIR /source
 
@@ -12,16 +9,12 @@ COPY ./Cargo.lock ./Cargo.lock
 
 COPY ./crates ./crates
 
-RUN rustup target add $ARCH-unknown-linux-musl
-
-RUN cargo build --target=$ARCH-unknown-linux-musl --release
+RUN cargo build --release
 
 #------- Copy into run image -------#
-FROM alpine:3.22.0
+FROM debian:bookworm-slim
 
-ARG ARCH
-
-COPY --from=builder /source/target/${ARCH}-unknown-linux-musl/release/chimney-cli /bin/chimney
+COPY --from=builder /source/target/release/chimney-cli /bin/chimney
 
 # Create the default "public" directory follownig the normal convention
 RUN mkdir -p /var/www/html
