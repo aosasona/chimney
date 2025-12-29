@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-const DEFAULT_MIME_TYPE: &str = "application/octet-stream";
+pub const DEFAULT_MIME_TYPE: &str = "application/octet-stream";
 
 /// Returns the MIME type for a given file path.
 pub fn from_path(path: PathBuf) -> &'static str {
@@ -104,26 +104,5 @@ pub fn from_extension(extension: &str) -> &'static str {
         "3g2" => "video/3gpp2",
         "7z" => "application/x-7z-compressed",
         _ => DEFAULT_MIME_TYPE,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_from_extension() {
-        assert_eq!(from_extension("txt"), "text/plain");
-        assert_eq!(from_extension("html"), "text/html");
-        assert_eq!(from_extension("jpg"), "image/jpeg");
-        assert_eq!(from_extension("unknown"), DEFAULT_MIME_TYPE);
-    }
-
-    #[test]
-    fn test_from_path() {
-        assert_eq!(from_path(PathBuf::from("file.txt")), "text/plain");
-        assert_eq!(from_path(PathBuf::from("file.html")), "text/html");
-        assert_eq!(from_path(PathBuf::from("file.jpg")), "image/jpeg");
-        assert_eq!(from_path(PathBuf::from("file.unknown")), DEFAULT_MIME_TYPE);
     }
 }
