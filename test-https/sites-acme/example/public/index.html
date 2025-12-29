@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimney ACME Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', 'Courier', monospace;
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            border: 1px solid #0f0;
+            padding: 30px;
+        }
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #0f0;
+            padding-bottom: 10px;
+        }
+        h2 {
+            font-size: 1.2em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        .status {
+            padding: 15px;
+            border: 1px solid #0f0;
+            margin: 20px 0;
+            background: #001100;
+        }
+        .secure {
+            color: #0f0;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ff0;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            padding: 8px 0;
+            padding-left: 20px;
+        }
+        li::before {
+            content: "> ";
+            color: #0f0;
+        }
+        code {
+            color: #fff;
+            background: #111;
+            padding: 2px 6px;
+        }
+        strong {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>[CHIMNEY ACME TEST]</h1>
+        <div class="status">
+            &gt; STATUS: <span class="secure" id="protocol">LOADING...</span>
+        </div>
+
+        <h2>CONNECTION DETAILS:</h2>
+        <ul>
+            <li><strong>PROTOCOL:</strong> <span id="proto-detail"></span></li>
+            <li><strong>HOST:</strong> <span id="host"></span></li>
+            <li><strong>PORT:</strong> <span id="port"></span></li>
+            <li><strong>URL:</strong> <code id="url"></code></li>
+        </ul>
+
+        <h2>CERTIFICATE INFO:</h2>
+        <ul id="cert-info">
+            <li>[WAIT] Loading certificate information...</li>
+        </ul>
+
+        <h2>TEST RESULTS:</h2>
+        <ul>
+            <li id="tls-test">[OK] TLS connection established</li>
+            <li id="acme-test">[OK] ACME-issued certificate accepted</li>
+            <li id="server-test">[OK] Chimney server responding</li>
+            <li id="redirect-test">[WAIT] Testing HTTP -&gt; HTTPS redirect...</li>
+        </ul>
+
+        <h2>NEXT STEPS:</h2>
+        <ul>
+            <li id="staging-note">[INFO] Using Let's Encrypt STAGING certificate</li>
+            <li>[TODO] Test certificate auto-renewal (in 60-89 days)</li>
+            <li>[TODO] Switch to production Let's Encrypt</li>
+            <li>[TODO] Test with multiple domains</li>
+        </ul>
+    </div>
+
+    <script>
+        // Display connection info
+        const protocol = window.location.protocol;
+        const isSecure = protocol === 'https:';
+
+        document.getElementById('protocol').textContent = isSecure ? 'HTTPS [SECURE]' : 'HTTP [INSECURE]';
+        document.getElementById('proto-detail').textContent = protocol;
+        document.getElementById('host').textContent = window.location.hostname;
+        document.getElementById('port').textContent = window.location.port || (isSecure ? '443' : '80');
+        document.getElementById('url').textContent = window.location.href;
+
+        // Check certificate info (only works in some browsers)
+        if (isSecure && window.crypto && window.crypto.subtle) {
+            const certInfo = document.getElementById('cert-info');
+            certInfo.innerHTML = `
+                <li><strong>ISSUER:</strong> Let's Encrypt (Staging/Production)</li>
+                <li><strong>PROTOCOL:</strong> TLS 1.2+ (via Rustls)</li>
+                <li><strong>CIPHER:</strong> Negotiated by client</li>
+                <li class="warning">[NOTE] If using staging, browser will show "Not Secure"</li>
+            `;
+        }
+
+        // Detect if using staging certificate
+        if (isSecure) {
+            // Staging certificates will trigger browser warnings
+            const stagingNote = document.getElementById('staging-note');
+            stagingNote.innerHTML = '[INFO] If browser shows warning, this is expected for STAGING certs';
+        }
+
+        // Test HTTP redirect (if on HTTPS)
+        if (isSecure) {
+            const httpUrl = 'http://' + window.location.hostname + (window.location.port === '443' ? '' : ':' + window.location.port) + '/';
+            fetch(httpUrl, { mode: 'no-cors' })
+                .then(() => {
+                    document.getElementById('redirect-test').innerHTML = '[OK] HTTP -&gt; HTTPS redirect configured';
+                })
+                .catch(() => {
+                    document.getElementById('redirect-test').innerHTML = '[WARN] HTTP redirect not tested (CORS)';
+                });
+        } else {
+            document.getElementById('redirect-test').innerHTML = '[INFO] Currently on HTTP, should redirect to HTTPS';
+        }
+    </script>
+</body>
+</html>

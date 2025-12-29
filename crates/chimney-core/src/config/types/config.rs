@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -88,6 +88,68 @@ impl HostDetectionStrategy {
         matches!(self, HostDetectionStrategy::Auto)
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct HttpsConfig {
+    /// Whether HTTPS is enabled globally or not (default: true)
+    #[serde(default = "HttpsConfig::default_enabled")]
+    pub enabled: bool,
+
+    /// The port number to bind the HTTPS server to (default: 8443)
+    /// See also `port` for the HTTP port
+    #[serde(default = "HttpsConfig::default_port")]
+    pub port: u16,
+
+    #[serde(default = "HttpsConfig::default_cache_directory")]
+    /// The directory to cache TLS certificates in (for ACME)
+    /// Default: ~/.chimney/certs
+    pub cache_directory: PathBuf,
+
+    #[serde(default = "HttpsConfig::default_acme_email")]
+    /// The email address to use for ACME account registration
+    pub acme_email: Option<String>,
+
+    /// The ACME directory URL to use (default: Let's Encrypt production)
+    /// See https://letsencrypt.org/docs/acme-endpoint/ for more details
+    /// Default: https://acme-v02.api.letsencrypt.org/directory
+    #[serde(default = "HttpsConfig::default_acme_directory")]
+    pub acme_directory_url: String,
+}
+
+impl Default for HttpsConfig {
+    fn default() -> Self {
+        HttpsConfig {
+            enabled: HttpsConfig::default_enabled(),
+            port: HttpsConfig::default_port(),
+            cache_directory: HttpsConfig::default_cache_directory(),
+            acme_email: HttpsConfig::default_acme_email(),
+            acme_directory_url: HttpsConfig::default_acme_directory(),
+        }
+    }
+}
+
+impl HttpsConfig {
+    pub fn default_enabled() -> bool {
+        true
+    }
+
+    pub fn default_port() -> u16 {
+        8443
+    }
+
+    pub fn default_acme_email() -> Option<String> {
+        None
+    }
+
+    pub fn default_acme_directory() -> String {
+        "https://acme-v02.api.letsencrypt.org/directory".to_string()
+    }
+
+    pub fn default_cache_directory() -> PathBuf {
+        PathBuf::from("~/.chimney/certs")
+    }
+}
+
 /// The core configuration options available
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
@@ -95,9 +157,14 @@ pub struct Config {
     #[serde(default = "Config::default_host")]
     pub host: IpAddr,
 
-    /// The port number to bind the server to (default: 8080)
+    /// The port number to bind the HTTP server to (default: 8080)
+    /// See also `https.port` for the HTTPS port
     #[serde(default = "Config::default_port")]
     pub port: u16,
+
+    /// The HTTPS configuration options (default: enabled on port 8443)
+    #[serde(default)]
+    pub https: Option<HttpsConfig>,
 
     /// The host detection options to use (default: "auto")
     #[serde(default)]
@@ -126,6 +193,7 @@ impl Default for Config {
         Config {
             host: Config::default_host(),
             port: Config::default_port(),
+            https: Some(HttpsConfig::default()),
             host_detection: HostDetectionStrategy::default(),
             sites_directory: Config::default_sites_dir(),
             log_level: Some(LogLevel::default()),
@@ -143,6 +211,10 @@ impl Config {
 
     pub fn default_port() -> u16 {
         8080
+    }
+
+    pub fn default_https_port() -> Option<u16> {
+        Some(8443)
     }
 
     pub fn default_sites_dir() -> String {
@@ -191,6 +263,17 @@ impl Config {
         }
 
         self.resolved_host_header = Some(header);
+    }
+}
+
+// TLS certificate directory resolution
+impl Config {
+    pub fn cert_directory(&self) -> PathBuf {
+        if let Some(https_config) = &self.https {
+            return https_config.cache_directory.clone();
+        }
+
+        PathBuf::from("~/.chimney/certs")
     }
 }
 

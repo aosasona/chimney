@@ -91,6 +91,73 @@ chimney init -p path/to/config
 chimney serve -c path/to/config/chimney.toml
 ```
 
+## HTTPS Configuration
+
+Chimney supports HTTPS with both manual certificates and automatic certificate issuance via ACME (Let's Encrypt).
+
+### Automatic Certificate Issuance (ACME)
+
+Chimney can automatically obtain and renew TLS certificates from Let's Encrypt using the ACME protocol. Enable HTTPS globally in your main `chimney.toml`:
+
+```toml
+# chimney.toml (main config)
+[https]
+enabled = true
+acme_email = "admin@example.com"
+# acme_directory_url = "https://acme-v02.api.letsencrypt.org/directory"  # Default (production)
+```
+
+When global HTTPS is enabled, all sites automatically use ACME for certificate issuance. No per-site configuration is required for ACME mode.
+
+**Important Notes:**
+- Uses TLS-ALPN-01 validation (challenges are served on port 443)
+- Certificates are cached in `.chimney/certs/` directory
+- Automatic renewal happens in the background
+- For testing, use Let's Encrypt staging: `acme_directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"`
+- Port 443 must be accessible from the internet for ACME validation
+
+### Manual Certificates
+
+To use manual certificates for a specific site instead of ACME, provide `cert_file` and `key_file` in the site's `chimney.toml`:
+
+```toml
+# sites/example/chimney.toml
+root = "."
+domain_names = ["example.com", "www.example.com"]
+
+[https_config]
+cert_file = "/path/to/cert.pem"
+key_file = "/path/to/key.pem"
+# ca_file = "/path/to/ca.pem"   # Optional CA certificate
+# auto_redirect = true          # Default: redirect HTTP to HTTPS
+```
+
+#### Generating Self-Signed Certificates (for testing)
+
+```sh
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -keyout key.pem -out cert.pem -days 365 \
+  -subj "/CN=example.com"
+```
+
+### Dual Listener Architecture
+
+When HTTPS is enabled:
+- HTTP listener runs on the configured port (default: 80)
+- HTTPS listener runs on port 443
+- Requests are automatically redirected from HTTP to HTTPS when `auto_redirect = true`
+
+### SNI Support
+
+Chimney supports Server Name Indication (SNI), allowing multiple sites with different certificates on the same server. Each site can have its own certificate configuration.
+
+### Mixed Configurations
+
+You can mix ACME and manual certificates across different sites:
+- Some sites can use ACME for automatic certificate management
+- Other sites can use manual certificates
+- All sites benefit from SNI-based certificate selection
+
 ## Why not \[this other proxy/server\]?
 
 Because I wanted to make one, and I did. That's the simple answer.
@@ -101,5 +168,5 @@ This is most definitely not what you want, and if it is, give it a go and let me
 
 I would love to hear from people who are actively using this mainly for bug fixes and feature suggestions, I may or may not add your desired feature if it doesn't fit any of the goals.
 
-> [!WARNING]
-> HTTPS functionality has NOT been implemented yet, so using this standalone in production is kind of not feasible... unless you have some sort of central proxy and a bunch of containers running Chimney that you simply proxy requests to (you can probably tell what my usecase is...)
+> [!NOTE]
+> HTTPS is fully supported with both manual certificates and automatic certificate issuance via ACME (Let's Encrypt). See the HTTPS Configuration section above for details.

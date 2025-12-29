@@ -1,0 +1,17 @@
+# ACME Site Configuration Example
+#
+# Replace with your actual domain and email before testing!
+
+root = "public"
+
+# Your actual domain(s) - must point to this server's IP
+domain_names = ["example.com", "www.example.com"]
+
+[https_config]
+auto_redirect = true # Redirect HTTP → HTTPS
+# No cert_file/key_file = automatic ACME certificate issuance
+
+# Optional: Response headers
+[response_headers]
+"X-TLS-Mode" = "ACME"
+"X-Test-Server" = "Chimney"

@@ -1,0 +1,15 @@
+# Site configuration for localhost HTTPS testing
+root = "public"
+domain_names = ["localhost", "127.0.0.1", "tls.test"]
+
+[https_config]
+auto_redirect = true # Redirect HTTP → HTTPS
+
+# Manual certificates (providing cert_file + key_file uses manual mode instead of ACME)
+cert_file = "test-https/localhost-cert.pem"
+key_file = "test-https/localhost-key.pem"
+
+# Optional: Response headers for testing
+[response_headers]
+"X-Test-Server" = "Chimney"
+"X-TLS-Mode" = "Manual"

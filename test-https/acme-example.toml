@@ -1,0 +1,19 @@
+# Example ACME Configuration for Public Server Testing
+#
+# Prerequisites:
+# 1. A public domain pointing to this server's IP
+# 2. Port 80 and 443 open and accessible
+# 3. Run with sudo: sudo chimney-cli serve --config acme-example.toml
+#
+# IMPORTANT: This uses Let's Encrypt STAGING for testing
+# Change acme_directory in site config for production
+
+host = "0.0.0.0"
+port = 80  # HTTP listener (required for ACME challenges)
+log_level = "debug"
+
+sites_directory = "sites-acme"
+
+# Optional: Specify where to cache certificates
+# Default: ./.chimney/certs/
+# cache_directory = "/var/cache/chimney/certs"

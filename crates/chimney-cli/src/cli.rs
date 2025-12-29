@@ -25,8 +25,13 @@ pub enum Commands {
     /// Start the server with the provided configuration
     Serve {
         /// Path to the configuration file
-        #[arg(short, long, help = "Path to the Chimney configuration file")]
-        config_path: Option<String>,
+        #[arg(
+            short,
+            long = "config",
+            alias = "config-path",
+            help = "Path to the Chimney configuration file"
+        )]
+        config: Option<String>,
     },
 
     /// Create a new chimney configuration file in the target directory
@@ -96,8 +101,8 @@ impl Cli {
     /// Execute the CLI command based on the parsed arguments.
     pub async fn execute(&self) -> Result<(), error::CliError> {
         match &self.command {
-            Commands::Serve { config_path } => {
-                let config = self.load_config(config_path)?;
+            Commands::Serve { config } => {
+                let config = self.load_config(config)?;
 
                 let config_log_level = config.log_level.clone();
                 self.set_log_level(config_log_level);
@@ -122,7 +127,10 @@ impl Cli {
         let fs = filesystem::local::LocalFS::new(PathBuf::from(config.sites_directory.clone()))
             .map_err(CliError::Filesystem)?;
 
-        let server = Server::new(Arc::new(fs), Arc::new(config));
+        // Use new_with_tls to enable automatic TLS support
+        let server = Server::new_with_tls(Arc::new(fs), Arc::new(config))
+            .await
+            .map_err(|e| CliError::Generic(format!("Failed to create server: {e}")))?;
 
         // Start the server
         server
@@ -246,17 +254,39 @@ impl Cli {
             }
 
             let config_content = std::fs::read_to_string(&config_file).map_err(CliError::Read)?;
-            let mut site_config = Site::from_string(site_name.clone(), &config_content)?;
+            let site_config = Site::from_string(site_name.clone(), &config_content)?;
+
+            // Validate the site's root path doesn't escape sites_directory
+            // Note: The actual path resolution happens in chimney-core's Service
             let site_root = path
                 .canonicalize()
                 .map_err(|e| CliError::Generic(format!("Failed to canonicalize site path: {e}")))?;
 
-            // Now we need to add the site configuration to the main Chimney config
+            let full_root = site_root.join(&site_config.root);
+            let canonical_full_root = full_root.canonicalize().map_err(|e| {
+                CliError::Generic(format!("Invalid root path for site {site_name}: {e}"))
+            })?;
+
+            let canonical_sites_dir = PathBuf::from(&config.sites_directory)
+                .canonicalize()
+                .map_err(|e| {
+                    CliError::Generic(format!("Failed to resolve sites directory: {e}"))
+                })?;
+
+            if !canonical_full_root.starts_with(&canonical_sites_dir) {
+                return Err(CliError::Generic(format!(
+                    "Site '{}' root path escapes sites directory: {}",
+                    site_name,
+                    canonical_full_root.display()
+                )));
+            }
+
+            // Add the site configuration without preprocessing the root path
+            // chimney-core will resolve site.root relative to sites_directory
             config_log_debug!(
                 "chimney_cli::cli",
-                "Adding new site configuration for: {site_name}"
+                "Adding site configuration for: {site_name}"
             );
-            site_config.set_root_directory(site_root.to_string_lossy().to_string());
             config.sites.add(site_config)?;
         }
 

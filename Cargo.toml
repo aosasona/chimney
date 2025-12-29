@@ -12,6 +12,12 @@ homepage = "https://github.com/aosasona/chimney"
 repository = "https://github.com/aosasona/chimney"
 readme = "README.md"
 
+[workspace.lints.clippy]
+# Allow explicit returns (prefer `return Ok()` over bare `Ok()`)
+needless_return = "allow"
+# Allow `new()` without implementing Default
+new_without_default = "allow"
+
 [workspace.dependencies]
 tokio = { version = "1.45.1", features = [
 	"net",
@@ -23,6 +29,7 @@ tokio = { version = "1.45.1", features = [
 	"signal",
 	"time",
 ] }
+tokio-util = "0.7"
 bytes = "1.10.1"
 chrono = "0.4.41"
 clap = { version = "4.5.39", features = ["derive"] }
@@ -40,3 +47,10 @@ serde = { version = "1.0.219", features = ["derive"] }
 tempfile = { version = "3.20.0" }
 thiserror = { version = "2.0.12" }
 url = { version = "2.5.4" }
+
+# TLS and ACME support
+tokio-rustls = "0.26"
+rustls = "0.23"
+rustls-pemfile = "2.1"
+tokio-rustls-acme = "0.8"
+futures-util = "0.3"

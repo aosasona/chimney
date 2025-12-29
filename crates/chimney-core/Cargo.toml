@@ -1,10 +1,13 @@
 [package]
 name = "chimney"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 description = "Rust library for building static file servers based on the Chimney core."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aosasona/chimney"
+
+[lints]
+workspace = true
 
 [dependencies]
 chrono = { workspace = true }
@@ -18,7 +21,15 @@ tempfile = { workspace = true }
 toml = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 url = { workspace = true }
+
+# TLS and ACME support
+tokio-rustls = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+tokio-rustls-acme = { workspace = true }
+futures-util = { workspace = true }
 
 [features]
 default = ["toml"]
