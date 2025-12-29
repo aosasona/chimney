@@ -1,9 +1,9 @@
 # Site configuration for localhost HTTPS testing
 root = "public"
-domain_names = ["localhost", "127.0.0.1"]
+domain_names = ["localhost", "127.0.0.1", "tls.test"]
 
 [https_config]
-auto_redirect = true  # Redirect HTTP → HTTPS
+auto_redirect = true # Redirect HTTP → HTTPS
 
 # Manual certificates (providing cert_file + key_file uses manual mode instead of ACME)
 cert_file = "test-https/localhost-cert.pem"
