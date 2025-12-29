@@ -33,57 +33,8 @@ impl RedirectService {
         }
     }
 
-    /// Check if the request should be redirected to HTTPS
-    fn should_redirect(&self, req: &Request<Incoming>) -> bool {
-        // Only redirect if this is an HTTP request (not HTTPS)
-        if self.is_https {
-            return false;
-        }
-
-        // Get the Host header to determine which site this is
-        let host = match req.headers().get(header::HOST) {
-            Some(host) => match host.to_str() {
-                Ok(h) => h,
-                Err(_) => return false,
-            },
-            None => return false,
-        };
-
-        // Check if global HTTPS is enabled and site has auto_redirect enabled
-        let config = self.config_handle.get();
-
-        // Global HTTPS must be enabled
-        let global_https_enabled = config
-            .https
-            .as_ref()
-            .map(|https| https.enabled)
-            .unwrap_or(false);
-
-        if !global_https_enabled {
-            return false;
-        }
-
-        // Check site-specific auto_redirect (defaults to true)
-        if let Some(site) = config.sites.find_by_hostname(host) {
-            return site
-                .https_config
-                .as_ref()
-                .map(|https| https.auto_redirect)
-                .unwrap_or(true); // Default to true when no site-specific config
-        }
-
-        // Site not found, don't redirect
-        false
-    }
-
-    /// Build a redirect response
-    fn build_redirect_response(&self, req: &Request<Incoming>) -> Response<Full<Bytes>> {
-        let host = req
-            .headers()
-            .get(header::HOST)
-            .and_then(|h| h.to_str().ok())
-            .unwrap_or("localhost");
-
+    /// Build a redirect response using the resolved host
+    fn build_redirect_response(req: &Request<Incoming>, host: &str) -> Response<Full<Bytes>> {
         let uri = req.uri();
         let path_and_query = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
 
@@ -105,14 +56,56 @@ impl HyperService<Request<Incoming>> for RedirectService {
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn call(&self, req: Request<Incoming>) -> Self::Future {
-        // Check if we should redirect
-        if self.should_redirect(&req) {
-            let response = self.build_redirect_response(&req);
-            return Box::pin(async move { Ok(response) });
-        }
+        let inner = self.inner.clone();
+        let config_handle = self.config_handle.clone();
+        let is_https = self.is_https;
 
-        // Otherwise, pass through to the inner service
-        let fut = self.inner.call(req);
-        Box::pin(fut)
+        Box::pin(async move {
+            // Only redirect if this is an HTTP request (not HTTPS)
+            if is_https {
+                return inner.call(req).await;
+            }
+
+            // Resolve the host using the configured strategy
+            let resolved = match inner.resolve_host(req.headers()).await {
+                Ok(resolved) => resolved,
+                Err(_) => {
+                    // If we can't resolve the host, just pass through to inner service
+                    return inner.call(req).await;
+                }
+            };
+
+            // Check if global HTTPS is enabled and site has auto_redirect enabled
+            let config = config_handle.get();
+
+            // Global HTTPS must be enabled
+            let global_https_enabled = config
+                .https
+                .as_ref()
+                .map(|https| https.enabled)
+                .unwrap_or(false);
+
+            if !global_https_enabled {
+                return inner.call(req).await;
+            }
+
+            // Check site-specific auto_redirect (defaults to true)
+            let should_redirect = if let Some(site) = config.sites.find_by_hostname(&resolved.host) {
+                site.https_config
+                    .as_ref()
+                    .map(|https| https.auto_redirect)
+                    .unwrap_or(true) // Default to true when no site-specific config
+            } else {
+                // Site not found, don't redirect
+                false
+            };
+
+            if should_redirect {
+                let response = Self::build_redirect_response(&req, &resolved.host);
+                Ok(response)
+            } else {
+                inner.call(req).await
+            }
+        })
     }
 }

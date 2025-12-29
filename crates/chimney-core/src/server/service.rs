@@ -178,8 +178,13 @@ impl Service {
     ) -> Result<Option<PathBuf>, crate::error::ServerError> {
         let route = route.trim_matches('/').to_string();
 
-        // Use the site's root directory (already set to full path in CLI)
-        let path = PathBuf::from(&site.root);
+        // Resolve the site's root directory relative to sites_directory
+        // This allows chimney-core to work as a library without requiring CLI preprocessing
+        let config = self.config.get();
+        let path = PathBuf::from(&config.sites_directory)
+            .join(&site.name)
+            .join(&site.root);
+
         debug!(
             "Base path for site {}: {}",
             site.name,

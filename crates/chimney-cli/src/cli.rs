@@ -254,22 +254,15 @@ impl Cli {
             }
 
             let config_content = std::fs::read_to_string(&config_file).map_err(CliError::Read)?;
-            let mut site_config = Site::from_string(site_name.clone(), &config_content)?;
+            let site_config = Site::from_string(site_name.clone(), &config_content)?;
+
+            // Validate the site's root path doesn't escape sites_directory
+            // Note: The actual path resolution happens in chimney-core's Service
             let site_root = path
                 .canonicalize()
                 .map_err(|e| CliError::Generic(format!("Failed to canonicalize site path: {e}")))?;
 
-            // Now we need to add the site configuration to the main Chimney config
-            config_log_debug!(
-                "chimney_cli::cli",
-                "Adding new site configuration for: {site_name}"
-            );
-
-            // Append the site's configured root directory to the canonicalized site path
-            // This preserves the "root" setting from the site's chimney.toml
             let full_root = site_root.join(&site_config.root);
-
-            // Validate the path doesn't escape sites_directory
             let canonical_full_root = full_root.canonicalize().map_err(|e| {
                 CliError::Generic(format!("Invalid root path for site {site_name}: {e}"))
             })?;
@@ -288,7 +281,12 @@ impl Cli {
                 )));
             }
 
-            site_config.set_root_directory(canonical_full_root.to_string_lossy().to_string());
+            // Add the site configuration without preprocessing the root path
+            // chimney-core will resolve site.root relative to sites_directory
+            config_log_debug!(
+                "chimney_cli::cli",
+                "Adding site configuration for: {site_name}"
+            );
             config.sites.add(site_config)?;
         }
 

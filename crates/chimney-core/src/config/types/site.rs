@@ -62,9 +62,7 @@ impl Https {
     /// Validates the per-site HTTPS configuration
     pub fn validate(&self, site_name: &str) -> Result<(), ChimneyError> {
         // Check if only one of cert/key is provided (incomplete manual config)
-        let has_cert = self.cert_file.is_some();
-        let has_key = self.key_file.is_some();
-        if has_cert != has_key {
+        if self.cert_file.is_some() != self.key_file.is_some() {
             return Err(ChimneyError::ConfigError {
                 field: format!("sites.{site_name}.https_config"),
                 message: "Both cert_file and key_file must be provided for manual certificates"
