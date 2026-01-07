@@ -240,7 +240,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chimney"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "chrono",
  "env_logger",
@@ -264,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "chimney-cli"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "chimney",
  "chrono",
