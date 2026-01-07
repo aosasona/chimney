@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.1"
 authors = ["Ayodeji O. <ayodeji@trulyao.dev>"]
 edition = "2024"
 description = "Yet another static file server for the modern web."
