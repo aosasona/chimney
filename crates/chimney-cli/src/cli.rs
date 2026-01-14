@@ -128,7 +128,7 @@ impl Cli {
             .map_err(CliError::Filesystem)?;
 
         // Use new_with_tls to enable automatic TLS support
-        let server = Server::new_with_tls(Arc::new(fs), Arc::new(config))
+        let server = Server::new_with_tls(Arc::new(fs), config.into())
             .await
             .map_err(|e| CliError::Generic(format!("Failed to create server: {e}")))?;
 

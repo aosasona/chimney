@@ -43,6 +43,13 @@ impl ConfigHandle {
     }
 }
 
+impl From<Config> for ConfigHandle {
+    fn from(val: Config) -> Self {
+        let (sender, receiver) = tokio::sync::watch::channel(Arc::new(val));
+        ConfigHandle::new(sender, receiver)
+    }
+}
+
 /// Represents the host detection options
 /// This is used to determine how the target host i.e. domain or IP address is detected from the
 /// request headers

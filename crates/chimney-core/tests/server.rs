@@ -54,8 +54,7 @@ fn mock_config() -> Config {
 
 fn mock_server(config: Config) -> Server {
     let fs = Arc::new(filesystem::mock::MockFilesystem);
-    let config = Arc::new(config);
-    Server::new(fs, config)
+    Server::new(fs, config.into())
 }
 
 #[tokio::test]
