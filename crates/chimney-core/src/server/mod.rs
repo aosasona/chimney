@@ -8,10 +8,7 @@ use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
 use log::{debug, error, info};
 
-use crate::{
-    config::{Config, ConfigHandle},
-    error::ServerError,
-};
+use crate::{config::ConfigHandle, error::ServerError};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Notify,
@@ -56,12 +53,11 @@ impl Server {
     /// let config = Arc::new(Config::default());
     /// let server = Server::new(filesystem, config);
     /// ```
-    pub fn new(filesystem: Arc<dyn crate::filesystem::Filesystem>, config: Arc<Config>) -> Self {
+    pub fn new(
+        filesystem: Arc<dyn crate::filesystem::Filesystem>,
+        config_handle: ConfigHandle,
+    ) -> Self {
         debug!("Creating a new Chimney server instance");
-
-        let (config_tx, config_rx) = tokio::sync::watch::channel(config.clone());
-        let config_handle = ConfigHandle::new(config_tx, config_rx);
-
         let service = service::Service::new(filesystem.clone(), config_handle.clone());
 
         Server {
@@ -103,19 +99,16 @@ impl Server {
     /// ```
     pub async fn new_with_tls(
         filesystem: Arc<dyn crate::filesystem::Filesystem>,
-        config: Arc<Config>,
+        config_handle: ConfigHandle,
     ) -> Result<Self, ServerError> {
         debug!("Creating a new Chimney server instance with TLS");
-
-        let (config_tx, config_rx) = tokio::sync::watch::channel(config.clone());
-        let config_handle = ConfigHandle::new(config_tx, config_rx);
-
+        let config = config_handle.get();
         let service = service::Service::new(filesystem.clone(), config_handle.clone());
 
         // Initialize TLS if any site has HTTPS enabled
         let (tls_manager, tls_acceptor) = if crate::tls::TlsManager::is_tls_enabled(&config) {
             info!("TLS is enabled, initializing TLS manager");
-            let manager = Arc::new(crate::tls::TlsManager::new(config.clone()).await?);
+            let manager = Arc::new(crate::tls::TlsManager::new(config).await?);
 
             // Only build manual TLS acceptor if we have manual certificates and no ACME
             let acceptor = if !manager.has_acme() && !manager.is_manual_empty() {
