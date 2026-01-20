@@ -1,9 +1,13 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use chimney::{
     config::{self, Config, Format, LogLevel, Site},
     config_log_debug, config_log_warn, filesystem,
     server::Server,
+    tls::{
+        request_certificate, CertRequestOptions,
+        LETS_ENCRYPT_PRODUCTION_URL, LETS_ENCRYPT_STAGING_URL,
+    },
 };
 use clap::{Parser, Subcommand};
 
@@ -66,6 +70,70 @@ pub enum Commands {
     /// Print the version of the Chimney CLI
     #[command(about = "Print the version of the Chimney CLI")]
     Version,
+
+    /// Request a TLS certificate for domains via ACME (Let's Encrypt)
+    ///
+    /// This command requests a certificate using the ACME protocol with TLS-ALPN-01 validation.
+    /// The server must be able to receive connections on the challenge port (default: 443).
+    #[command(
+        name = "request-cert",
+        about = "Request a TLS certificate for domains via ACME"
+    )]
+    RequestCert {
+        /// Domain name(s) to request certificate for (can be specified multiple times)
+        #[arg(
+            short,
+            long = "domain",
+            required = true,
+            num_args = 1..,
+            help = "Domain name(s) to request certificate for"
+        )]
+        domains: Vec<String>,
+
+        /// Email address for ACME account registration (required by Let's Encrypt)
+        #[arg(
+            short,
+            long,
+            required = true,
+            help = "Email address for ACME account"
+        )]
+        email: String,
+
+        /// Directory to store certificates
+        #[arg(
+            long,
+            default_value = ".chimney/certs",
+            help = "Directory to store issued certificates"
+        )]
+        cert_dir: PathBuf,
+
+        /// Port to bind for ACME TLS-ALPN-01 challenge
+        #[arg(
+            long,
+            default_value = "443",
+            help = "Port to bind for TLS-ALPN-01 challenge (usually 443)"
+        )]
+        port: u16,
+
+        /// Timeout in seconds for certificate issuance
+        #[arg(
+            long,
+            default_value = "300",
+            help = "Timeout in seconds for certificate issuance"
+        )]
+        timeout: u64,
+
+        /// Use Let's Encrypt staging environment (for testing)
+        ///
+        /// Staging certificates are not trusted by browsers but allow unlimited
+        /// requests, making them ideal for testing.
+        #[arg(
+            long,
+            default_value = "false",
+            help = "Use Let's Encrypt staging environment"
+        )]
+        staging: bool,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -118,6 +186,51 @@ impl Cli {
             Commands::Version => {
                 println!("Chimney CLI version: {}", env!("CARGO_PKG_VERSION"));
                 Ok(())
+            }
+            Commands::RequestCert {
+                domains,
+                email,
+                cert_dir,
+                port,
+                timeout,
+                staging,
+            } => {
+                self.set_log_level(None);
+
+                // Determine directory URL based on staging flag
+                let directory_url = if *staging {
+                    log::info!("Using Let's Encrypt staging environment");
+                    LETS_ENCRYPT_STAGING_URL.to_string()
+                } else {
+                    log::info!("Using Let's Encrypt production environment");
+                    LETS_ENCRYPT_PRODUCTION_URL.to_string()
+                };
+
+                // Create or resolve cert directory
+                let cert_dir = if cert_dir.exists() {
+                    cert_dir.canonicalize().map_err(|e| {
+                        CliError::Generic(format!("Failed to resolve cert directory: {e}"))
+                    })?
+                } else {
+                    std::fs::create_dir_all(cert_dir).map_err(|e| {
+                        CliError::Generic(format!("Failed to create cert directory: {e}"))
+                    })?;
+                    cert_dir.canonicalize().map_err(|e| {
+                        CliError::Generic(format!("Failed to resolve cert directory: {e}"))
+                    })?
+                };
+
+                let options = CertRequestOptions {
+                    domains: domains.clone(),
+                    email: email.clone(),
+                    directory_url,
+                    cache_dir: cert_dir,
+                    challenge_port: *port,
+                    timeout: Duration::from_secs(*timeout),
+                    ..Default::default()
+                };
+
+                self.do_request_certificate(options, *staging).await
             }
         }
     }
@@ -322,6 +435,42 @@ impl Cli {
             "Default Chimney configuration file created at: {}",
             path.display()
         );
+
+        Ok(())
+    }
+
+    /// Request a TLS certificate for the specified domains via ACME.
+    async fn do_request_certificate(
+        &self,
+        options: CertRequestOptions,
+        staging: bool,
+    ) -> Result<(), CliError> {
+        log::info!("Requesting certificate for domains: {:?}", options.domains);
+        log::info!(
+            "Certificates will be stored in: {}",
+            options.cache_dir.display()
+        );
+        log::info!(
+            "Binding to port {} for ACME challenge",
+            options.challenge_port
+        );
+
+        println!("Requesting certificate for: {:?}", options.domains);
+        println!("This may take a few minutes...\n");
+
+        let result = request_certificate(options).await.map_err(|e| {
+            CliError::Generic(format!("Certificate request failed: {e}"))
+        })?;
+
+        println!("\nCertificate issued successfully!");
+        println!("  Certificate: {}", result.cert_path.display());
+        println!("  Private key: {}", result.key_path.display());
+        println!("\nDomains: {:?}", result.domains);
+
+        if staging {
+            println!("\nNote: This is a staging certificate and will not be trusted by browsers.");
+            println!("Run without --staging to get a production certificate.");
+        }
 
         Ok(())
     }

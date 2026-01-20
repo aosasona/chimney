@@ -334,6 +334,94 @@ impl Site {
         }
         self.response_headers.remove(header);
     }
+
+    /// Installs a TLS certificate for this site.
+    ///
+    /// This updates the site's `https_config` to use the specified certificate
+    /// and key files. The certificate will be used when the server starts or
+    /// when the configuration is reloaded.
+    ///
+    /// # Arguments
+    /// * `cert_path` - Path to the certificate PEM file
+    /// * `key_path` - Path to the private key PEM file
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let mut site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .build();
+    ///
+    /// site.install_certificate("./certs/cert.pem", "./certs/key.pem");
+    ///
+    /// assert!(site.https_config.is_some());
+    /// ```
+    pub fn install_certificate(
+        &mut self,
+        cert_path: impl Into<String>,
+        key_path: impl Into<String>,
+    ) {
+        let cert = cert_path.into();
+        let key = key_path.into();
+        debug!(
+            "Installing certificate for site '{}': cert={}, key={}",
+            self.name, cert, key
+        );
+        self.https_config = Some(Https {
+            auto_redirect: true,
+            cert_file: Some(cert),
+            key_file: Some(key),
+            ca_file: None,
+        });
+    }
+
+    /// Installs a TLS certificate with a CA bundle for this site.
+    ///
+    /// Similar to `install_certificate`, but also includes a CA bundle file
+    /// for certificate chain verification.
+    ///
+    /// # Arguments
+    /// * `cert_path` - Path to the certificate PEM file
+    /// * `key_path` - Path to the private key PEM file
+    /// * `ca_path` - Path to the CA bundle PEM file
+    pub fn install_certificate_with_ca(
+        &mut self,
+        cert_path: impl Into<String>,
+        key_path: impl Into<String>,
+        ca_path: impl Into<String>,
+    ) {
+        let cert = cert_path.into();
+        let key = key_path.into();
+        let ca = ca_path.into();
+        debug!(
+            "Installing certificate with CA for site '{}': cert={}, key={}, ca={}",
+            self.name, cert, key, ca
+        );
+        self.https_config = Some(Https {
+            auto_redirect: true,
+            cert_file: Some(cert),
+            key_file: Some(key),
+            ca_file: Some(ca),
+        });
+    }
+
+    /// Removes the TLS certificate configuration from this site.
+    ///
+    /// After calling this, the site will use ACME for automatic certificate
+    /// issuance (if global HTTPS is enabled).
+    pub fn uninstall_certificate(&mut self) {
+        debug!("Removing certificate configuration for site '{}'", self.name);
+        self.https_config = None;
+    }
+
+    /// Returns true if this site has a manually configured certificate.
+    pub fn has_installed_certificate(&self) -> bool {
+        self.https_config
+            .as_ref()
+            .map(|https| https.is_manual())
+            .unwrap_or(false)
+    }
 }
 
 impl Site {
@@ -556,5 +644,333 @@ impl Sites {
 
         debug!("Rebuilt index for site: {}", site.name);
         Ok(())
+    }
+}
+
+/// A builder for constructing `Site` configurations with a fluent API.
+///
+/// # Example
+///
+/// ```
+/// use chimney::config::SiteBuilder;
+///
+/// let site = SiteBuilder::new("my-site")
+///     .domain("example.com")
+///     .domain("www.example.com")
+///     .root("./public")
+///     .fallback_file("index.html")
+///     .response_header("X-Frame-Options", "DENY")
+///     .build();
+/// ```
+#[derive(Debug, Clone)]
+pub struct SiteBuilder {
+    name: String,
+    root: String,
+    domain_names: Vec<String>,
+    fallback_file: Option<String>,
+    default_index_file: Option<String>,
+    https_config: Option<Https>,
+    response_headers: HashMap<String, String>,
+    redirects: HashMap<String, RedirectRule>,
+    rewrites: HashMap<String, RewriteRule>,
+}
+
+impl SiteBuilder {
+    /// Creates a new `SiteBuilder` with the given site name.
+    ///
+    /// The name is required and cannot be changed after creation.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            root: Site::default_root_directory(),
+            domain_names: Vec::new(),
+            fallback_file: None,
+            default_index_file: None,
+            https_config: None,
+            response_headers: HashMap::new(),
+            redirects: HashMap::new(),
+            rewrites: HashMap::new(),
+        }
+    }
+
+    /// Adds a domain name to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .domain("www.example.com")
+    ///     .build();
+    /// ```
+    pub fn domain(mut self, domain: impl Into<String>) -> Self {
+        let domain = domain.into();
+        if !self.domain_names.contains(&domain) {
+            self.domain_names.push(domain);
+        }
+        self
+    }
+
+    /// Adds multiple domain names to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domains(["example.com", "www.example.com"])
+    ///     .build();
+    /// ```
+    pub fn domains<I, S>(mut self, domains: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        for domain in domains {
+            let domain = domain.into();
+            if !self.domain_names.contains(&domain) {
+                self.domain_names.push(domain);
+            }
+        }
+        self
+    }
+
+    /// Sets the root directory for the site.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .root("./public")
+    ///     .build();
+    /// ```
+    pub fn root(mut self, root: impl Into<String>) -> Self {
+        self.root = root.into();
+        self
+    }
+
+    /// Sets the fallback file for the site (useful for SPAs).
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .fallback_file("index.html")
+    ///     .build();
+    /// ```
+    pub fn fallback_file(mut self, file: impl Into<String>) -> Self {
+        self.fallback_file = Some(file.into());
+        self
+    }
+
+    /// Sets the default index file for directory requests.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .default_index_file("index.htm")
+    ///     .build();
+    /// ```
+    pub fn default_index_file(mut self, file: impl Into<String>) -> Self {
+        self.default_index_file = Some(file.into());
+        self
+    }
+
+    /// Sets the HTTPS configuration for the site.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::{SiteBuilder, Https};
+    ///
+    /// let https = Https {
+    ///     auto_redirect: true,
+    ///     cert_file: Some("cert.pem".to_string()),
+    ///     key_file: Some("key.pem".to_string()),
+    ///     ca_file: None,
+    /// };
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .https(https)
+    ///     .build();
+    /// ```
+    pub fn https(mut self, config: Https) -> Self {
+        self.https_config = Some(config);
+        self
+    }
+
+    /// Sets manual TLS certificate paths for the site.
+    ///
+    /// This is a convenience method that creates an `Https` config with manual certificates.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .manual_cert("./certs/cert.pem", "./certs/key.pem")
+    ///     .build();
+    /// ```
+    pub fn manual_cert(
+        mut self,
+        cert_file: impl Into<String>,
+        key_file: impl Into<String>,
+    ) -> Self {
+        self.https_config = Some(Https {
+            auto_redirect: true,
+            cert_file: Some(cert_file.into()),
+            key_file: Some(key_file.into()),
+            ca_file: None,
+        });
+        self
+    }
+
+    /// Adds a response header to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .response_header("X-Frame-Options", "DENY")
+    ///     .response_header("X-Content-Type-Options", "nosniff")
+    ///     .build();
+    /// ```
+    pub fn response_header(
+        mut self,
+        name: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.response_headers.insert(name.into(), value.into());
+        self
+    }
+
+    /// Adds multiple response headers to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .response_headers([
+    ///         ("X-Frame-Options", "DENY"),
+    ///         ("X-Content-Type-Options", "nosniff"),
+    ///     ])
+    ///     .build();
+    /// ```
+    pub fn response_headers<I, K, V>(mut self, headers: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        for (name, value) in headers {
+            self.response_headers.insert(name.into(), value.into());
+        }
+        self
+    }
+
+    /// Adds a simple redirect rule to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .redirect("/old-path", "/new-path")
+    ///     .build();
+    /// ```
+    pub fn redirect(mut self, from: impl Into<String>, to: impl Into<String>) -> Self {
+        self.redirects
+            .insert(from.into(), RedirectRule::Target(to.into()));
+        self
+    }
+
+    /// Adds a redirect rule with full configuration to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::{SiteBuilder, RedirectRule};
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .redirect_rule("/old", RedirectRule::new("/new".to_string(), true, false))
+    ///     .build();
+    /// ```
+    pub fn redirect_rule(mut self, from: impl Into<String>, rule: RedirectRule) -> Self {
+        self.redirects.insert(from.into(), rule);
+        self
+    }
+
+    /// Adds a rewrite rule to the site.
+    ///
+    /// This method is chainable and can be called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .rewrite("/api/*", "/backend/api/$1")
+    ///     .build();
+    /// ```
+    pub fn rewrite(mut self, from: impl Into<String>, to: impl Into<String>) -> Self {
+        self.rewrites
+            .insert(from.into(), RewriteRule::Target(to.into()));
+        self
+    }
+
+    /// Builds the `Site` from the configured options.
+    ///
+    /// # Example
+    /// ```
+    /// use chimney::config::SiteBuilder;
+    ///
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .root("./public")
+    ///     .build();
+    ///
+    /// assert_eq!(site.name, "my-site");
+    /// assert_eq!(site.domain_names, vec!["example.com"]);
+    /// assert_eq!(site.root, "./public");
+    /// ```
+    pub fn build(self) -> Site {
+        Site {
+            name: self.name,
+            root: self.root,
+            domain_names: self.domain_names,
+            fallback_file: self.fallback_file,
+            default_index_file: self.default_index_file,
+            https_config: self.https_config,
+            response_headers: self.response_headers,
+            redirects: self.redirects,
+            rewrites: self.rewrites,
+        }
     }
 }
