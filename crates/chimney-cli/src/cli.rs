@@ -4,10 +4,7 @@ use chimney::{
     config::{self, Config, Format, LogLevel, Site},
     config_log_debug, config_log_warn, filesystem,
     server::Server,
-    tls::{
-        request_certificate, CertRequestOptions,
-        LETS_ENCRYPT_PRODUCTION_URL, LETS_ENCRYPT_STAGING_URL,
-    },
+    tls::{CertRequestOptions, LETS_ENCRYPT_PRODUCTION_URL, LETS_ENCRYPT_STAGING_URL},
 };
 use clap::{Parser, Subcommand};
 
@@ -91,12 +88,7 @@ pub enum Commands {
         domains: Vec<String>,
 
         /// Email address for ACME account registration (required by Let's Encrypt)
-        #[arg(
-            short,
-            long,
-            required = true,
-            help = "Email address for ACME account"
-        )]
+        #[arg(short, long, required = true, help = "Email address for ACME account")]
         email: String,
 
         /// Directory to store certificates
@@ -180,7 +172,7 @@ impl Cli {
                 self.run_server(config).await
             }
             Commands::Init { path, format } => {
-                self.set_log_level(None);
+                self.set_log_level(self.log_level.clone());
                 self.generate_default_config(path.clone(), format)
             }
             Commands::Version => {
@@ -195,7 +187,7 @@ impl Cli {
                 timeout,
                 staging,
             } => {
-                self.set_log_level(None);
+                self.set_log_level(self.log_level.clone());
 
                 // Determine directory URL based on staging flag
                 let directory_url = if *staging {
@@ -207,18 +199,12 @@ impl Cli {
                 };
 
                 // Create or resolve cert directory
-                let cert_dir = if cert_dir.exists() {
-                    cert_dir.canonicalize().map_err(|e| {
-                        CliError::Generic(format!("Failed to resolve cert directory: {e}"))
-                    })?
-                } else {
-                    std::fs::create_dir_all(cert_dir).map_err(|e| {
-                        CliError::Generic(format!("Failed to create cert directory: {e}"))
-                    })?;
-                    cert_dir.canonicalize().map_err(|e| {
-                        CliError::Generic(format!("Failed to resolve cert directory: {e}"))
-                    })?
-                };
+                std::fs::create_dir_all(cert_dir).map_err(|e| {
+                    CliError::Generic(format!("Failed to create cert directory: {e}"))
+                })?;
+                let cert_dir = cert_dir.canonicalize().map_err(|e| {
+                    CliError::Generic(format!("Failed to resolve cert directory: {e}"))
+                })?;
 
                 let options = CertRequestOptions {
                     domains: domains.clone(),
@@ -230,7 +216,7 @@ impl Cli {
                     ..Default::default()
                 };
 
-                self.do_request_certificate(options, *staging).await
+                self.request_certificate(options, *staging).await
             }
         }
     }
@@ -440,7 +426,7 @@ impl Cli {
     }
 
     /// Request a TLS certificate for the specified domains via ACME.
-    async fn do_request_certificate(
+    async fn request_certificate(
         &self,
         options: CertRequestOptions,
         staging: bool,
@@ -458,9 +444,9 @@ impl Cli {
         println!("Requesting certificate for: {:?}", options.domains);
         println!("This may take a few minutes...\n");
 
-        let result = request_certificate(options).await.map_err(|e| {
-            CliError::Generic(format!("Certificate request failed: {e}"))
-        })?;
+        let result = chimney::tls::request_certificate(options)
+            .await
+            .map_err(|e| CliError::Generic(format!("Certificate request failed: {e}")))?;
 
         println!("\nCertificate issued successfully!");
         println!("  Certificate: {}", result.cert_path.display());
