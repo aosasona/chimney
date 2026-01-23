@@ -353,21 +353,15 @@ impl Site {
     ///     .domain("example.com")
     ///     .build();
     ///
-    /// site.install_certificate("./certs/cert.pem", "./certs/key.pem");
+    /// site.add_certificate("./certs/cert.pem", "./certs/key.pem");
     ///
     /// assert!(site.https_config.is_some());
     /// ```
-    pub fn install_certificate(
-        &mut self,
-        cert_path: impl Into<String>,
-        key_path: impl Into<String>,
-    ) {
+    pub fn add_certificate(&mut self, cert_path: impl Into<String>, key_path: impl Into<String>) {
         let cert = cert_path.into();
         let key = key_path.into();
-        debug!(
-            "Installing certificate for site '{}': cert={}, key={}",
-            self.name, cert, key
-        );
+        debug!("Installing certificate for site '{}'", self.name);
+
         self.https_config = Some(Https {
             auto_redirect: true,
             cert_file: Some(cert),
@@ -378,14 +372,14 @@ impl Site {
 
     /// Installs a TLS certificate with a CA bundle for this site.
     ///
-    /// Similar to `install_certificate`, but also includes a CA bundle file
+    /// Similar to `add_certificate`, but also includes a CA bundle file
     /// for certificate chain verification.
     ///
     /// # Arguments
     /// * `cert_path` - Path to the certificate PEM file
     /// * `key_path` - Path to the private key PEM file
     /// * `ca_path` - Path to the CA bundle PEM file
-    pub fn install_certificate_with_ca(
+    pub fn add_certificate_with_ca(
         &mut self,
         cert_path: impl Into<String>,
         key_path: impl Into<String>,
@@ -410,13 +404,16 @@ impl Site {
     ///
     /// After calling this, the site will use ACME for automatic certificate
     /// issuance (if global HTTPS is enabled).
-    pub fn uninstall_certificate(&mut self) {
-        debug!("Removing certificate configuration for site '{}'", self.name);
+    pub fn remove_certificate(&mut self) {
+        debug!(
+            "Removing certificate configuration for site '{}'",
+            self.name
+        );
         self.https_config = None;
     }
 
     /// Returns true if this site has a manually configured certificate.
-    pub fn has_installed_certificate(&self) -> bool {
+    pub fn has_certificate(&self) -> bool {
         self.https_config
             .as_ref()
             .map(|https| https.is_manual())
@@ -852,11 +849,7 @@ impl SiteBuilder {
     ///     .response_header("X-Content-Type-Options", "nosniff")
     ///     .build();
     /// ```
-    pub fn response_header(
-        mut self,
-        name: impl Into<String>,
-        value: impl Into<String>,
-    ) -> Self {
+    pub fn response_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.response_headers.insert(name.into(), value.into());
         self
     }
