@@ -197,17 +197,17 @@ fn test_site_builder_full_example() {
 }
 
 #[test]
-fn test_site_install_certificate() {
+fn test_site_add_certificate() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .build();
 
-    assert!(!site.has_installed_certificate());
+    assert!(!site.has_certificate());
     assert!(site.https_config.is_none());
 
-    site.install_certificate("./certs/cert.pem", "./certs/key.pem");
+    site.add_certificate("./certs/cert.pem", "./certs/key.pem");
 
-    assert!(site.has_installed_certificate());
+    assert!(site.has_certificate());
     assert!(site.https_config.is_some());
 
     let https = site.https_config.as_ref().unwrap();
@@ -218,18 +218,18 @@ fn test_site_install_certificate() {
 }
 
 #[test]
-fn test_site_install_certificate_with_ca() {
+fn test_site_add_certificate_with_ca() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .build();
 
-    site.install_certificate_with_ca(
+    site.add_certificate_with_ca(
         "./certs/cert.pem",
         "./certs/key.pem",
         "./certs/ca.pem",
     );
 
-    assert!(site.has_installed_certificate());
+    assert!(site.has_certificate());
 
     let https = site.https_config.as_ref().unwrap();
     assert_eq!(https.cert_file, Some("./certs/cert.pem".to_string()));
@@ -238,38 +238,38 @@ fn test_site_install_certificate_with_ca() {
 }
 
 #[test]
-fn test_site_uninstall_certificate() {
+fn test_site_remove_certificate() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .manual_cert("./certs/cert.pem", "./certs/key.pem")
         .build();
 
-    assert!(site.has_installed_certificate());
+    assert!(site.has_certificate());
 
-    site.uninstall_certificate();
+    site.remove_certificate();
 
-    assert!(!site.has_installed_certificate());
+    assert!(!site.has_certificate());
     assert!(site.https_config.is_none());
 }
 
 #[test]
-fn test_site_has_installed_certificate_with_acme() {
+fn test_site_has_certificate_with_acme() {
     // Site with no https_config uses ACME (not manual cert)
     let site = SiteBuilder::new("my-site")
         .domain("example.com")
         .build();
 
-    assert!(!site.has_installed_certificate());
+    assert!(!site.has_certificate());
 }
 
 #[test]
-fn test_site_install_certificate_overwrites_existing() {
+fn test_site_add_certificate_overwrites_existing() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .manual_cert("./old/cert.pem", "./old/key.pem")
         .build();
 
-    site.install_certificate("./new/cert.pem", "./new/key.pem");
+    site.add_certificate("./new/cert.pem", "./new/key.pem");
 
     let https = site.https_config.as_ref().unwrap();
     assert_eq!(https.cert_file, Some("./new/cert.pem".to_string()));
