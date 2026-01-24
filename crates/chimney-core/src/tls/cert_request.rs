@@ -17,7 +17,7 @@ use tokio::net::TcpListener;
 use tokio_rustls_acme::caches::DirCache;
 use tokio_rustls_acme::AcmeConfig;
 
-use crate::config::CertificatePaths;
+use crate::config::Certificate;
 use crate::error::ServerError;
 
 /// Default Let's Encrypt production directory URL
@@ -67,8 +67,8 @@ impl Default for CertRequestOptions {
 pub struct CertRequestResult {
     /// Domain names the certificate was issued for
     pub domains: Vec<String>,
-    /// Paths to the certificate and key files
-    pub certificate: CertificatePaths,
+    /// Certificate with paths to cert and key files
+    pub certificate: Certificate,
 }
 
 /// Request a TLS certificate for the specified domains via ACME
@@ -277,7 +277,7 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
 
     Ok(CertRequestResult {
         domains: options.domains,
-        certificate: CertificatePaths::new(cert_path, key_path),
+        certificate: Certificate::from_paths(cert_path, key_path),
     })
 }
 

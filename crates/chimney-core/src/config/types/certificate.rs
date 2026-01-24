@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Represents a TLS certificate with its associated key and optional CA bundle.
 ///
@@ -35,9 +35,26 @@ impl Certificate {
         }
     }
 
+    /// Creates a new certificate from path types.
+    ///
+    /// This is useful when working with `PathBuf` or `Path` values from filesystem operations.
+    pub fn from_paths(cert: impl AsRef<Path>, key: impl AsRef<Path>) -> Self {
+        Self {
+            cert: cert.as_ref().to_string_lossy().into_owned(),
+            key: key.as_ref().to_string_lossy().into_owned(),
+            ca: None,
+        }
+    }
+
     /// Adds a CA bundle path to the certificate.
     pub fn with_ca(mut self, ca: impl Into<String>) -> Self {
         self.ca = Some(ca.into());
+        self
+    }
+
+    /// Adds a CA bundle path from a path type.
+    pub fn with_ca_path(mut self, ca: impl AsRef<Path>) -> Self {
+        self.ca = Some(ca.as_ref().to_string_lossy().into_owned());
         self
     }
 
@@ -54,56 +71,5 @@ impl Certificate {
     /// Returns the CA path as an `Option<&Path>`.
     pub fn ca_path(&self) -> Option<&Path> {
         self.ca.as_ref().map(|s| Path::new(s.as_str()))
-    }
-}
-
-/// A certificate with `PathBuf` paths, typically used for results from certificate operations.
-///
-/// This is similar to `Certificate` but uses owned `PathBuf` instead of `String`,
-/// making it more suitable for representing file system paths in results.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CertificatePaths {
-    /// Path to the certificate PEM file
-    pub cert: PathBuf,
-    /// Path to the private key PEM file
-    pub key: PathBuf,
-    /// Path to the CA bundle PEM file (optional)
-    pub ca: Option<PathBuf>,
-}
-
-impl CertificatePaths {
-    /// Creates a new certificate paths struct.
-    pub fn new(cert: impl Into<PathBuf>, key: impl Into<PathBuf>) -> Self {
-        Self {
-            cert: cert.into(),
-            key: key.into(),
-            ca: None,
-        }
-    }
-
-    /// Adds a CA bundle path.
-    pub fn with_ca(mut self, ca: impl Into<PathBuf>) -> Self {
-        self.ca = Some(ca.into());
-        self
-    }
-}
-
-impl From<Certificate> for CertificatePaths {
-    fn from(cert: Certificate) -> Self {
-        Self {
-            cert: PathBuf::from(cert.cert),
-            key: PathBuf::from(cert.key),
-            ca: cert.ca.map(PathBuf::from),
-        }
-    }
-}
-
-impl From<CertificatePaths> for Certificate {
-    fn from(paths: CertificatePaths) -> Self {
-        Self {
-            cert: paths.cert.to_string_lossy().into_owned(),
-            key: paths.key.to_string_lossy().into_owned(),
-            ca: paths.ca.map(|p| p.to_string_lossy().into_owned()),
-        }
     }
 }
