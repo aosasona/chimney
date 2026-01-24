@@ -174,8 +174,9 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
                 }
                 Some(Err(err)) => {
                     error!("ACME error: {:?}", err);
-                    let mut error_guard = cert_error_clone.lock().unwrap();
-                    *error_guard = Some(format!("{:?}", err));
+                    if let Ok(mut error_guard) = cert_error_clone.lock() {
+                        *error_guard = Some(format!("{:?}", err));
+                    }
                     break;
                 }
                 None => {
@@ -229,9 +230,10 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
             event_handle.abort();
 
             // Check if there was an error
-            let error_guard = cert_error.lock().unwrap();
-            if let Some(err) = error_guard.as_ref() {
-                return Err(ServerError::AcmeCertificateIssuanceFailed(err.clone()));
+            if let Ok(error_guard) = cert_error.lock() {
+                if let Some(err) = error_guard.as_ref() {
+                    return Err(ServerError::AcmeCertificateIssuanceFailed(err.clone()));
+                }
             }
 
             return Err(ServerError::AcmeCertificateIssuanceFailed(
@@ -254,8 +256,7 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
         }
 
         // Check for errors
-        {
-            let error_guard = cert_error.lock().unwrap();
+        if let Ok(error_guard) = cert_error.lock() {
             if let Some(err) = error_guard.as_ref() {
                 accept_handle.abort();
                 event_handle.abort();
