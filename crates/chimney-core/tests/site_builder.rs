@@ -1,4 +1,4 @@
-use chimney::config::{Https, RedirectRule, SiteBuilder};
+use chimney::config::{Certificate, Https, RedirectRule, SiteBuilder};
 
 #[test]
 fn test_site_builder_basic() {
@@ -141,10 +141,10 @@ fn test_site_builder_rewrite() {
 }
 
 #[test]
-fn test_site_builder_manual_cert() {
+fn test_site_builder_certificate() {
     let site = SiteBuilder::new("my-site")
         .domain("example.com")
-        .manual_cert("./certs/cert.pem", "./certs/key.pem")
+        .certificate(Certificate::new("./certs/cert.pem", "./certs/key.pem"))
         .build();
 
     assert!(site.https_config.is_some());
@@ -205,7 +205,7 @@ fn test_site_set_certificate() {
     assert!(!site.has_certificate());
     assert!(site.https_config.is_none());
 
-    site.set_certificate("./certs/cert.pem", "./certs/key.pem");
+    site.set_certificate(Certificate::new("./certs/cert.pem", "./certs/key.pem"));
 
     assert!(site.has_certificate());
     assert!(site.https_config.is_some());
@@ -223,10 +223,9 @@ fn test_site_set_certificate_with_ca() {
         .domain("example.com")
         .build();
 
-    site.set_certificate_with_ca(
-        "./certs/cert.pem",
-        "./certs/key.pem",
-        "./certs/ca.pem",
+    site.set_certificate(
+        Certificate::new("./certs/cert.pem", "./certs/key.pem")
+            .with_ca("./certs/ca.pem"),
     );
 
     assert!(site.has_certificate());
@@ -241,7 +240,7 @@ fn test_site_set_certificate_with_ca() {
 fn test_site_remove_certificate() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
-        .manual_cert("./certs/cert.pem", "./certs/key.pem")
+        .certificate(Certificate::new("./certs/cert.pem", "./certs/key.pem"))
         .build();
 
     assert!(site.has_certificate());
@@ -266,10 +265,10 @@ fn test_site_has_certificate_with_acme() {
 fn test_site_set_certificate_overwrites_existing() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
-        .manual_cert("./old/cert.pem", "./old/key.pem")
+        .certificate(Certificate::new("./old/cert.pem", "./old/key.pem"))
         .build();
 
-    site.set_certificate("./new/cert.pem", "./new/key.pem");
+    site.set_certificate(Certificate::new("./new/cert.pem", "./new/key.pem"));
 
     let https = site.https_config.as_ref().unwrap();
     assert_eq!(https.cert_file, Some("./new/cert.pem".to_string()));

@@ -497,8 +497,8 @@ impl Cli {
             .map_err(|e| CliError::Generic(format!("Certificate request failed: {e}")))?;
 
         println!("\nCertificate issued successfully!");
-        println!("  Certificate: {}", result.cert_path.display());
-        println!("  Private key: {}", result.key_path.display());
+        println!("  Certificate: {}", result.certificate.cert.display());
+        println!("  Private key: {}", result.certificate.key.display());
         println!("\nDomains: {:?}", result.domains);
 
         if staging {

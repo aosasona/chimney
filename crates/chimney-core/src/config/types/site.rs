@@ -6,7 +6,7 @@ use toml::Table;
 
 use crate::{error::ChimneyError, with_leading_slash};
 
-use super::{Domain, DomainIndex};
+use super::{Certificate, Domain, DomainIndex};
 
 /// Per-site HTTPS configuration overrides.
 ///
@@ -335,68 +335,42 @@ impl Site {
         self.response_headers.remove(header);
     }
 
-    /// Installs a TLS certificate for this site.
+    /// Sets a TLS certificate for this site.
     ///
-    /// This updates the site's `https_config` to use the specified certificate
-    /// and key files. The certificate will be used when the server starts or
-    /// when the configuration is reloaded.
-    ///
-    /// # Arguments
-    /// * `cert_path` - Path to the certificate PEM file
-    /// * `key_path` - Path to the private key PEM file
+    /// This updates the site's `https_config` to use the specified certificate.
+    /// The certificate will be used when the server starts or when the
+    /// configuration is reloaded.
     ///
     /// # Example
     /// ```
-    /// use chimney::config::SiteBuilder;
+    /// use chimney::config::{Certificate, SiteBuilder};
     ///
     /// let mut site = SiteBuilder::new("my-site")
     ///     .domain("example.com")
     ///     .build();
     ///
-    /// site.set_certificate("./certs/cert.pem", "./certs/key.pem");
+    /// // Basic certificate
+    /// site.set_certificate(Certificate::new("./certs/cert.pem", "./certs/key.pem"));
+    ///
+    /// // With CA bundle
+    /// site.set_certificate(
+    ///     Certificate::new("./certs/cert.pem", "./certs/key.pem")
+    ///         .with_ca("./certs/ca.pem")
+    /// );
     ///
     /// assert!(site.https_config.is_some());
     /// ```
-    pub fn set_certificate(&mut self, cert_path: impl Into<String>, key_path: impl Into<String>) {
-        let cert = cert_path.into();
-        let key = key_path.into();
-        debug!("Installing certificate for site '{}'", self.name);
-
-        self.https_config = Some(Https {
-            auto_redirect: true,
-            cert_file: Some(cert),
-            key_file: Some(key),
-            ca_file: None,
-        });
-    }
-
-    /// Installs a TLS certificate with a CA bundle for this site.
-    ///
-    /// Similar to `set_certificate`, but also includes a CA bundle file
-    /// for certificate chain verification.
-    ///
-    /// # Arguments
-    /// * `cert_path` - Path to the certificate PEM file
-    /// * `key_path` - Path to the private key PEM file
-    /// * `ca_path` - Path to the CA bundle PEM file
-    pub fn set_certificate_with_ca(
-        &mut self,
-        cert_path: impl Into<String>,
-        key_path: impl Into<String>,
-        ca_path: impl Into<String>,
-    ) {
-        let cert = cert_path.into();
-        let key = key_path.into();
-        let ca = ca_path.into();
+    pub fn set_certificate(&mut self, certificate: Certificate) {
         debug!(
-            "Installing certificate with CA for site '{}': cert={}, key={}, ca={}",
-            self.name, cert, key, ca
+            "Setting certificate for site '{}': cert={}, key={}, ca={:?}",
+            self.name, certificate.cert, certificate.key, certificate.ca
         );
+
         self.https_config = Some(Https {
             auto_redirect: true,
-            cert_file: Some(cert),
-            key_file: Some(key),
-            ca_file: Some(ca),
+            cert_file: Some(certificate.cert),
+            key_file: Some(certificate.key),
+            ca_file: certificate.ca,
         });
     }
 
@@ -805,29 +779,34 @@ impl SiteBuilder {
         self
     }
 
-    /// Sets manual TLS certificate paths for the site.
+    /// Sets a TLS certificate for the site.
     ///
     /// This is a convenience method that creates an `Https` config with manual certificates.
     ///
     /// # Example
     /// ```
-    /// use chimney::config::SiteBuilder;
+    /// use chimney::config::{Certificate, SiteBuilder};
     ///
     /// let site = SiteBuilder::new("my-site")
     ///     .domain("example.com")
-    ///     .manual_cert("./certs/cert.pem", "./certs/key.pem")
+    ///     .certificate(Certificate::new("./certs/cert.pem", "./certs/key.pem"))
+    ///     .build();
+    ///
+    /// // With CA bundle
+    /// let site = SiteBuilder::new("my-site")
+    ///     .domain("example.com")
+    ///     .certificate(
+    ///         Certificate::new("./certs/cert.pem", "./certs/key.pem")
+    ///             .with_ca("./certs/ca.pem")
+    ///     )
     ///     .build();
     /// ```
-    pub fn manual_cert(
-        mut self,
-        cert_file: impl Into<String>,
-        key_file: impl Into<String>,
-    ) -> Self {
+    pub fn certificate(mut self, certificate: Certificate) -> Self {
         self.https_config = Some(Https {
             auto_redirect: true,
-            cert_file: Some(cert_file.into()),
-            key_file: Some(key_file.into()),
-            ca_file: None,
+            cert_file: Some(certificate.cert),
+            key_file: Some(certificate.key),
+            ca_file: certificate.ca,
         });
         self
     }
