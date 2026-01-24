@@ -105,17 +105,16 @@ pub enum Commands {
         )]
         domains: Vec<String>,
 
-        /// Email address for ACME account registration (required by Let's Encrypt)
-        #[arg(short, long, required = true, help = "Email address for ACME account")]
-        email: String,
+        /// Email address for ACME account registration (falls back to config if not provided)
+        #[arg(short, long, help = "Email address for ACME account (uses config value if not provided)")]
+        email: Option<String>,
 
-        /// Directory to store certificates
+        /// Directory to store certificates (falls back to config if not provided)
         #[arg(
             long,
-            default_value = ".chimney/certs",
-            help = "Directory to store issued certificates"
+            help = "Directory to store issued certificates (uses config value if not provided)"
         )]
-        cert_dir: PathBuf,
+        cert_dir: Option<PathBuf>,
 
         /// Port to bind for ACME TLS-ALPN-01 challenge
         #[arg(
@@ -219,6 +218,24 @@ impl Cli {
                     )));
                 }
 
+                // Get ACME email from CLI args or fall back to config
+                let acme_email = email.clone().or_else(|| {
+                    loaded_config.https.as_ref().and_then(|h| h.acme_email.clone())
+                }).ok_or_else(|| {
+                    CliError::Generic(
+                        "ACME email is required. Provide --email or set https.acme_email in config.".to_string()
+                    )
+                })?;
+
+                // Get cert directory from CLI args or fall back to config
+                let cert_dir = cert_dir.clone().unwrap_or_else(|| {
+                    loaded_config
+                        .https
+                        .as_ref()
+                        .map(|h| h.cache_directory.clone())
+                        .unwrap_or_else(|| PathBuf::from(".chimney/certs"))
+                });
+
                 // Determine directory URL based on staging flag
                 let directory_url = if *staging {
                     log::info!("Using Let's Encrypt staging environment");
@@ -229,7 +246,7 @@ impl Cli {
                 };
 
                 // Create or resolve cert directory
-                std::fs::create_dir_all(cert_dir).map_err(|e| {
+                std::fs::create_dir_all(&cert_dir).map_err(|e| {
                     CliError::Generic(format!("Failed to create cert directory: {e}"))
                 })?;
                 let cert_dir = cert_dir.canonicalize().map_err(|e| {
@@ -239,7 +256,7 @@ impl Cli {
                 let options = CertRequestOptions {
                     site_name: site_name.clone(),
                     domains: domains.clone(),
-                    email: email.clone(),
+                    email: acme_email,
                     directory_url,
                     cache_dir: cert_dir,
                     challenge_port: *port,
