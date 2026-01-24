@@ -77,6 +77,24 @@ pub enum Commands {
         about = "Request a TLS certificate for domains via ACME"
     )]
     RequestCert {
+        /// Path to the configuration file (to validate site exists)
+        #[arg(
+            short,
+            long = "config",
+            alias = "config-path",
+            help = "Path to the Chimney configuration file"
+        )]
+        config: Option<String>,
+
+        /// Name of the site to request certificate for (must exist in config)
+        #[arg(
+            short = 's',
+            long,
+            required = true,
+            help = "Name of the site to request certificate for (must match a site in your config)"
+        )]
+        site_name: String,
+
         /// Domain name(s) to request certificate for (can be specified multiple times)
         #[arg(
             short,
@@ -180,6 +198,8 @@ impl Cli {
                 Ok(())
             }
             Commands::RequestCert {
+                config,
+                site_name,
                 domains,
                 email,
                 cert_dir,
@@ -188,6 +208,16 @@ impl Cli {
                 staging,
             } => {
                 self.set_log_level(self.log_level.clone());
+
+                // Load config and validate site exists
+                let loaded_config = self.load_config(config)?;
+                if loaded_config.sites.get(site_name).is_none() {
+                    return Err(CliError::Generic(format!(
+                        "Site '{}' not found in configuration. Available sites: {:?}",
+                        site_name,
+                        loaded_config.sites.into_iter().map(|(name, _)| name).collect::<Vec<_>>()
+                    )));
+                }
 
                 // Determine directory URL based on staging flag
                 let directory_url = if *staging {
@@ -207,6 +237,7 @@ impl Cli {
                 })?;
 
                 let options = CertRequestOptions {
+                    site_name: site_name.clone(),
                     domains: domains.clone(),
                     email: email.clone(),
                     directory_url,

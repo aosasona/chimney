@@ -11,6 +11,7 @@ use chimney::tls::{
 #[test]
 fn test_cert_request_options_default() {
     let options = CertRequestOptions::default();
+    assert!(options.site_name.is_empty());
     assert!(options.domains.is_empty());
     assert!(options.email.is_empty());
     assert_eq!(options.challenge_port, 443);
@@ -21,6 +22,7 @@ fn test_cert_request_options_default() {
 #[tokio::test]
 async fn test_request_certificate_validates_empty_domains() {
     let options = CertRequestOptions {
+        site_name: "test-site".to_string(),
         domains: vec![],
         email: "test@example.com".to_string(),
         ..Default::default()
@@ -35,8 +37,24 @@ async fn test_request_certificate_validates_empty_domains() {
 #[tokio::test]
 async fn test_request_certificate_validates_empty_email() {
     let options = CertRequestOptions {
+        site_name: "test-site".to_string(),
         domains: vec!["example.com".to_string()],
         email: String::new(),
+        ..Default::default()
+    };
+
+    let result = request_certificate(options).await;
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(err, ServerError::TlsInitializationFailed(_)));
+}
+
+#[tokio::test]
+async fn test_request_certificate_validates_empty_site_name() {
+    let options = CertRequestOptions {
+        site_name: String::new(),
+        domains: vec!["example.com".to_string()],
+        email: "test@example.com".to_string(),
         ..Default::default()
     };
 

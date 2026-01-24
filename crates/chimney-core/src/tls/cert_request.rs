@@ -28,6 +28,8 @@ pub const LETS_ENCRYPT_STAGING_URL: &str = "https://acme-staging-v02.api.letsenc
 /// Options for requesting a TLS certificate via ACME
 #[derive(Debug, Clone)]
 pub struct CertRequestOptions {
+    /// Site name used for certificate storage directory
+    pub site_name: String,
     /// Domain names to request certificate for
     pub domains: Vec<String>,
     /// Email address for ACME account registration
@@ -47,6 +49,7 @@ pub struct CertRequestOptions {
 impl Default for CertRequestOptions {
     fn default() -> Self {
         Self {
+            site_name: String::new(),
             domains: Vec::new(),
             email: String::new(),
             directory_url: LETS_ENCRYPT_PRODUCTION_URL.to_string(),
@@ -113,13 +116,14 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
         ));
     }
 
-    // Create site name from first domain (sanitized for filesystem)
-    let site_name = options.domains[0]
-        .replace('.', "_")
-        .replace('*', "wildcard");
+    if options.site_name.is_empty() {
+        return Err(ServerError::TlsInitializationFailed(
+            "Site name is required".to_string(),
+        ));
+    }
 
     // Validate site name and create cache directory
-    let site_cache_dir = super::cache::create_cert_directory(&site_name, &options.cache_dir)?;
+    let site_cache_dir = super::cache::create_cert_directory(&options.site_name, &options.cache_dir)?;
 
     info!(
         "Requesting certificate for domains: {:?}",
@@ -305,6 +309,12 @@ impl CertRequestOptionsBuilder {
         Self {
             options: CertRequestOptions::default(),
         }
+    }
+
+    /// Set the site name for certificate storage directory.
+    pub fn site_name(mut self, name: impl Into<String>) -> Self {
+        self.options.site_name = name.into();
+        self
     }
 
     /// Add a domain to request the certificate for.
