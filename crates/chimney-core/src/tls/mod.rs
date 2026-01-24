@@ -45,8 +45,18 @@
 pub mod acceptor;
 pub mod acme;
 pub mod cache;
+pub mod cert_request;
 pub mod config;
 pub mod manual;
+
+// Re-export cert_request types for convenience
+pub use cert_request::{
+    request_certificate, CertRequestOptions, CertRequestOptionsBuilder, CertRequestResult,
+    LETS_ENCRYPT_PRODUCTION_URL, LETS_ENCRYPT_STAGING_URL,
+};
+
+// Re-export manual certificate loading for users who need it
+pub use manual::load_certified_key;
 
 use std::{path::Path, sync::Arc};
 
