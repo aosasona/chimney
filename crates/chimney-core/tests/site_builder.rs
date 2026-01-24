@@ -197,7 +197,7 @@ fn test_site_builder_full_example() {
 }
 
 #[test]
-fn test_site_add_certificate() {
+fn test_site_set_certificate() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .build();
@@ -205,7 +205,7 @@ fn test_site_add_certificate() {
     assert!(!site.has_certificate());
     assert!(site.https_config.is_none());
 
-    site.add_certificate("./certs/cert.pem", "./certs/key.pem");
+    site.set_certificate("./certs/cert.pem", "./certs/key.pem");
 
     assert!(site.has_certificate());
     assert!(site.https_config.is_some());
@@ -218,12 +218,12 @@ fn test_site_add_certificate() {
 }
 
 #[test]
-fn test_site_add_certificate_with_ca() {
+fn test_site_set_certificate_with_ca() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .build();
 
-    site.add_certificate_with_ca(
+    site.set_certificate_with_ca(
         "./certs/cert.pem",
         "./certs/key.pem",
         "./certs/ca.pem",
@@ -263,13 +263,13 @@ fn test_site_has_certificate_with_acme() {
 }
 
 #[test]
-fn test_site_add_certificate_overwrites_existing() {
+fn test_site_set_certificate_overwrites_existing() {
     let mut site = SiteBuilder::new("my-site")
         .domain("example.com")
         .manual_cert("./old/cert.pem", "./old/key.pem")
         .build();
 
-    site.add_certificate("./new/cert.pem", "./new/key.pem");
+    site.set_certificate("./new/cert.pem", "./new/key.pem");
 
     let https = site.https_config.as_ref().unwrap();
     assert_eq!(https.cert_file, Some("./new/cert.pem".to_string()));

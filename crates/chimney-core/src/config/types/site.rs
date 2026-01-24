@@ -353,11 +353,11 @@ impl Site {
     ///     .domain("example.com")
     ///     .build();
     ///
-    /// site.add_certificate("./certs/cert.pem", "./certs/key.pem");
+    /// site.set_certificate("./certs/cert.pem", "./certs/key.pem");
     ///
     /// assert!(site.https_config.is_some());
     /// ```
-    pub fn add_certificate(&mut self, cert_path: impl Into<String>, key_path: impl Into<String>) {
+    pub fn set_certificate(&mut self, cert_path: impl Into<String>, key_path: impl Into<String>) {
         let cert = cert_path.into();
         let key = key_path.into();
         debug!("Installing certificate for site '{}'", self.name);
@@ -372,14 +372,14 @@ impl Site {
 
     /// Installs a TLS certificate with a CA bundle for this site.
     ///
-    /// Similar to `add_certificate`, but also includes a CA bundle file
+    /// Similar to `set_certificate`, but also includes a CA bundle file
     /// for certificate chain verification.
     ///
     /// # Arguments
     /// * `cert_path` - Path to the certificate PEM file
     /// * `key_path` - Path to the private key PEM file
     /// * `ca_path` - Path to the CA bundle PEM file
-    pub fn add_certificate_with_ca(
+    pub fn set_certificate_with_ca(
         &mut self,
         cert_path: impl Into<String>,
         key_path: impl Into<String>,
