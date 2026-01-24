@@ -729,10 +729,7 @@ impl SiteBuilder {
         S: Into<String>,
     {
         for domain in domains {
-            let domain = domain.into();
-            if !self.domain_names.contains(&domain) {
-                self.domain_names.push(domain);
-            }
+            self = self.domain(domain);
         }
         self
     }
