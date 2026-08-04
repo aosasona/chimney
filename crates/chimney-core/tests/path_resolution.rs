@@ -191,3 +191,38 @@ fn test_cert_directory_keeps_non_home_paths() {
 
     assert_eq!(config.cert_directory(), PathBuf::from("/tmp/chimney-certs"));
 }
+
+#[test]
+fn test_cert_directory_keeps_relative_path_independent_of_sites_directory() {
+    let mut config = Config::default();
+    config.sites_directory = "/var/www/sites".to_string();
+    config.https = Some(HttpsConfig {
+        cache_directory: PathBuf::from("relative/certs"),
+        ..Default::default()
+    });
+
+    assert_eq!(config.cert_directory(), PathBuf::from("relative/certs"));
+}
+
+#[test]
+fn test_default_cert_directory_expands_home_prefix() {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .expect("HOME/USERPROFILE must be set for this test");
+
+    assert_eq!(
+        Config::default().cert_directory(),
+        home.join(".chimney/certs")
+    );
+}
+
+#[test]
+fn test_expand_home_path_keeps_other_users_tilde_prefix() {
+    let config = Config::default();
+
+    assert_eq!(
+        config.expand_home_path("~another-user/certs"),
+        PathBuf::from("~another-user/certs")
+    );
+}
