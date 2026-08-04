@@ -14,8 +14,8 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use log::{debug, error, info};
 use tokio::net::TcpListener;
-use tokio_rustls_acme::caches::DirCache;
 use tokio_rustls_acme::AcmeConfig;
+use tokio_rustls_acme::caches::DirCache;
 
 use crate::config::Certificate;
 use crate::error::ServerError;
@@ -101,7 +101,9 @@ pub struct CertRequestResult {
 ///     Ok(())
 /// }
 /// ```
-pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequestResult, ServerError> {
+pub async fn request_certificate(
+    options: CertRequestOptions,
+) -> Result<CertRequestResult, ServerError> {
     // Validate options
     if options.domains.is_empty() {
         return Err(ServerError::TlsInitializationFailed(
@@ -122,14 +124,15 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
     }
 
     // Validate site name and create cache directory
-    let site_cache_dir = super::cache::create_cert_directory(&options.site_name, &options.cache_dir)?;
+    let site_cache_dir =
+        super::cache::create_cert_directory(&options.site_name, &options.cache_dir)?;
 
-    info!(
-        "Requesting certificate for domains: {:?}",
-        options.domains
-    );
+    info!("Requesting certificate for domains: {:?}", options.domains);
     info!("Using ACME directory: {}", options.directory_url);
-    info!("Certificates will be cached in: {}", site_cache_dir.display());
+    info!(
+        "Certificates will be cached in: {}",
+        site_cache_dir.display()
+    );
 
     // Install default crypto provider if not already installed
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
@@ -202,7 +205,10 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
                                 info!("Handled ACME TLS-ALPN-01 challenge from {}", peer_addr);
                             }
                             Ok(Some(_tls_stream)) => {
-                                debug!("Regular TLS connection from {} (not an ACME challenge)", peer_addr);
+                                debug!(
+                                    "Regular TLS connection from {} (not an ACME challenge)",
+                                    peer_addr
+                                );
                             }
                             Err(e) => {
                                 error!("TLS accept error from {}: {}", peer_addr, e);
@@ -237,7 +243,8 @@ pub async fn request_certificate(options: CertRequestOptions) -> Result<CertRequ
             }
 
             return Err(ServerError::AcmeCertificateIssuanceFailed(
-                "Timeout waiting for certificate issuance. Ensure domains resolve to this server.".to_string(),
+                "Timeout waiting for certificate issuance. Ensure domains resolve to this server."
+                    .to_string(),
             ));
         }
 

@@ -2,11 +2,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use rustls::{
-    server::ResolvesServerCert,
-    sign::CertifiedKey,
-    ServerConfig,
-};
+use rustls::{ServerConfig, server::ResolvesServerCert, sign::CertifiedKey};
 use tokio_rustls::TlsAcceptor;
 
 /// SNI resolver that maps domain names to certificates (manual certificates)

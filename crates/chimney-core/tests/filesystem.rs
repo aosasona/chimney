@@ -1,4 +1,4 @@
-use chimney::filesystem::{local::LocalFS, mock::MockFilesystem, Filesystem};
+use chimney::filesystem::{Filesystem, local::LocalFS, mock::MockFilesystem};
 
 // Local filesystem tests
 #[test]

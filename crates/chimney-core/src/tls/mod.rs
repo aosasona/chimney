@@ -51,8 +51,8 @@ pub mod manual;
 
 // Re-export cert_request types for convenience
 pub use cert_request::{
-    request_certificate, CertRequestOptions, CertRequestOptionsBuilder, CertRequestResult,
-    LETS_ENCRYPT_PRODUCTION_URL, LETS_ENCRYPT_STAGING_URL,
+    CertRequestOptions, CertRequestOptionsBuilder, CertRequestResult, LETS_ENCRYPT_PRODUCTION_URL,
+    LETS_ENCRYPT_STAGING_URL, request_certificate,
 };
 
 // Re-export manual certificate loading for users who need it
@@ -115,8 +115,7 @@ impl TlsManager {
                     let key_path = Path::new(&key_file);
                     let ca_path = ca_file.as_deref().map(Path::new);
 
-                    let certified_key =
-                        manual::load_certified_key(cert_path, key_path, ca_path)?;
+                    let certified_key = manual::load_certified_key(cert_path, key_path, ca_path)?;
 
                     // Add certificate for each domain
                     for domain in &tls_config.domains {

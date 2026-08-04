@@ -1,6 +1,9 @@
 // Certificate persistence and cache management
 
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::error::ServerError;
 
@@ -91,10 +94,12 @@ pub fn save_certificate(
         use std::os::unix::fs::PermissionsExt;
         let mut perms = fs::metadata(&temp_key)
             .map_err(|e| {
-                ServerError::TlsInitializationFailed(format!("Failed to get key file permissions: {e}"))
+                ServerError::TlsInitializationFailed(format!(
+                    "Failed to get key file permissions: {e}"
+                ))
             })?
             .permissions();
-        perms.set_mode(0o600);  // Owner read/write only
+        perms.set_mode(0o600); // Owner read/write only
         fs::set_permissions(&temp_key, perms).map_err(|e| {
             ServerError::TlsInitializationFailed(format!("Failed to set key file permissions: {e}"))
         })?;

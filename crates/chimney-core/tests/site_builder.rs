@@ -2,9 +2,7 @@ use chimney::config::{Certificate, Https, RedirectRule, SiteBuilder};
 
 #[test]
 fn test_site_builder_basic() {
-    let site = SiteBuilder::new("my-site")
-        .domain("example.com")
-        .build();
+    let site = SiteBuilder::new("my-site").domain("example.com").build();
 
     assert_eq!(site.name, "my-site");
     assert_eq!(site.domain_names, vec!["example.com"]);
@@ -86,8 +84,14 @@ fn test_site_builder_response_headers() {
         .build();
 
     assert_eq!(site.response_headers.len(), 2);
-    assert_eq!(site.response_headers.get("X-Frame-Options"), Some(&"DENY".to_string()));
-    assert_eq!(site.response_headers.get("X-Content-Type-Options"), Some(&"nosniff".to_string()));
+    assert_eq!(
+        site.response_headers.get("X-Frame-Options"),
+        Some(&"DENY".to_string())
+    );
+    assert_eq!(
+        site.response_headers.get("X-Content-Type-Options"),
+        Some(&"nosniff".to_string())
+    );
 }
 
 #[test]
@@ -198,9 +202,7 @@ fn test_site_builder_full_example() {
 
 #[test]
 fn test_site_set_certificate() {
-    let mut site = SiteBuilder::new("my-site")
-        .domain("example.com")
-        .build();
+    let mut site = SiteBuilder::new("my-site").domain("example.com").build();
 
     assert!(!site.has_certificate());
     assert!(site.https_config.is_none());
@@ -219,13 +221,10 @@ fn test_site_set_certificate() {
 
 #[test]
 fn test_site_set_certificate_with_ca() {
-    let mut site = SiteBuilder::new("my-site")
-        .domain("example.com")
-        .build();
+    let mut site = SiteBuilder::new("my-site").domain("example.com").build();
 
     site.set_certificate(
-        Certificate::new("./certs/cert.pem", "./certs/key.pem")
-            .with_ca("./certs/ca.pem"),
+        Certificate::new("./certs/cert.pem", "./certs/key.pem").with_ca("./certs/ca.pem"),
     );
 
     assert!(site.has_certificate());
@@ -254,9 +253,7 @@ fn test_site_remove_certificate() {
 #[test]
 fn test_site_has_certificate_with_acme() {
     // Site with no https_config uses ACME (not manual cert)
-    let site = SiteBuilder::new("my-site")
-        .domain("example.com")
-        .build();
+    let site = SiteBuilder::new("my-site").domain("example.com").build();
 
     assert!(!site.has_certificate());
 }

@@ -4,8 +4,8 @@ use chimney::{
     server::service::Service,
 };
 use hyper::{
-    header::{HeaderValue, HOST, HeaderName},
     HeaderMap,
+    header::{HOST, HeaderName, HeaderValue},
 };
 use std::sync::Arc;
 

@@ -1,10 +1,15 @@
 // Manual certificate loading from PEM files
 
-use std::{fs::File, io::BufReader, path::{Path, PathBuf}, sync::Arc};
+use std::{
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use rustls::ServerConfig;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
-use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 
 use crate::error::ServerError;
@@ -21,12 +26,12 @@ use crate::error::ServerError;
 pub fn validate_cert_path(path: &Path, file_type: &str) -> Result<PathBuf, ServerError> {
     // Canonicalize the path (resolves symlinks, relative paths, and makes absolute)
     // This also validates that the path exists and is accessible
-    let canonical = path.canonicalize().map_err(|e| {
-        ServerError::InvalidCertificateFile {
+    let canonical = path
+        .canonicalize()
+        .map_err(|e| ServerError::InvalidCertificateFile {
             path: path.display().to_string(),
             message: format!("Cannot access {file_type}: {e}"),
-        }
-    })?;
+        })?;
 
     // Verify it's a file, not a directory
     if !canonical.is_file() {
@@ -134,7 +139,9 @@ pub fn build_server_config(
     let config = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(certs, key)
-        .map_err(|e| ServerError::TlsInitializationFailed(format!("Invalid certificate or key: {e}")))?;
+        .map_err(|e| {
+            ServerError::TlsInitializationFailed(format!("Invalid certificate or key: {e}"))
+        })?;
 
     return Ok(config);
 }

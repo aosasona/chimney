@@ -32,9 +32,9 @@ pub fn process_site_https_config(site: &Site) -> Result<TlsConfig, ServerError> 
     // Check for per-site overrides
     let mode = if let Some(https_config) = &site.https_config {
         // Validate per-site config
-        https_config
-            .validate(&site.name)
-            .map_err(|e| ServerError::TlsInitializationFailed(format!("Invalid HTTPS config: {e}")))?;
+        https_config.validate(&site.name).map_err(|e| {
+            ServerError::TlsInitializationFailed(format!("Invalid HTTPS config: {e}"))
+        })?;
 
         if https_config.is_manual() {
             TlsMode::Manual {
