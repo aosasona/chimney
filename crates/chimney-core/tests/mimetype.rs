@@ -14,8 +14,5 @@ fn test_from_path() {
     assert_eq!(from_path(PathBuf::from("file.txt")), "text/plain");
     assert_eq!(from_path(PathBuf::from("file.html")), "text/html");
     assert_eq!(from_path(PathBuf::from("file.jpg")), "image/jpeg");
-    assert_eq!(
-        from_path(PathBuf::from("file.unknown")),
-        DEFAULT_MIME_TYPE
-    );
+    assert_eq!(from_path(PathBuf::from("file.unknown")), DEFAULT_MIME_TYPE);
 }

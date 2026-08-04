@@ -4,10 +4,10 @@ use std::{future::Future, pin::Pin, sync::Arc};
 
 use http_body_util::Full;
 use hyper::{
+    Request, Response, StatusCode,
     body::{Bytes, Incoming},
     header,
     service::Service as HyperService,
-    Request, Response, StatusCode,
 };
 use log::debug;
 
@@ -90,7 +90,8 @@ impl HyperService<Request<Incoming>> for RedirectService {
             }
 
             // Check site-specific auto_redirect (defaults to true)
-            let should_redirect = if let Some(site) = config.sites.find_by_hostname(&resolved.host) {
+            let should_redirect = if let Some(site) = config.sites.find_by_hostname(&resolved.host)
+            {
                 site.https_config
                     .as_ref()
                     .map(|https| https.auto_redirect)

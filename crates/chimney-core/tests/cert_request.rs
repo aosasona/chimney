@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use chimney::error::ServerError;
 use chimney::tls::{
-    request_certificate, CertRequestOptions, CertRequestOptionsBuilder,
-    LETS_ENCRYPT_PRODUCTION_URL, LETS_ENCRYPT_STAGING_URL,
+    CertRequestOptions, CertRequestOptionsBuilder, LETS_ENCRYPT_PRODUCTION_URL,
+    LETS_ENCRYPT_STAGING_URL, request_certificate,
 };
 
 #[test]

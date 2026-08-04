@@ -1,5 +1,5 @@
 use chimney::config::{Https, Site};
-use chimney::tls::config::{process_site_https_config, TlsMode};
+use chimney::tls::config::{TlsMode, process_site_https_config};
 use std::collections::HashMap;
 
 fn create_test_site(name: &str, domains: Vec<String>, https_config: Option<Https>) -> Site {

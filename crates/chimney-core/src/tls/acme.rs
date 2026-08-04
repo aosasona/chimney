@@ -115,7 +115,7 @@ impl AcmeManager {
             acceptor,
             resolver,
             cancel_token,
-        })
+        });
     }
 
     /// Get the ACME acceptor for handling TLS connections

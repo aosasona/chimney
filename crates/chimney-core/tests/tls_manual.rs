@@ -4,8 +4,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
-    // Test certificate and key (self-signed RSA 2048, for testing only)
-    const TEST_CERT_PEM: &str = r#"-----BEGIN CERTIFICATE-----
+// Test certificate and key (self-signed RSA 2048, for testing only)
+const TEST_CERT_PEM: &str = r#"-----BEGIN CERTIFICATE-----
 MIIDFzCCAf+gAwIBAgIUH3NRVTEGZ6/0uev+duwfow0/Y/wwDQYJKoZIhvcNAQEL
 BQAwGzEZMBcGA1UEAwwQdGVzdC5leGFtcGxlLmNvbTAeFw0yNTEyMjcyMjM0Mjha
 Fw0yNjEyMjcyMjM0MjhaMBsxGTAXBgNVBAMMEHRlc3QuZXhhbXBsZS5jb20wggEi
@@ -25,7 +25,7 @@ Xkkl2Na3/efr49frmNT3Cr/mdmCPxN9GCnuugQlIAlKaJRNu3kOmrHdvPImmNUWB
 cchGHMYhs6GmU2oUz0zaU7Uhc0RdP4xdRn9O
 -----END CERTIFICATE-----"#;
 
-    const TEST_KEY_PEM: &str = r#"-----BEGIN PRIVATE KEY-----
+const TEST_KEY_PEM: &str = r#"-----BEGIN PRIVATE KEY-----
 MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC0F9CnhxDYwbkB
 NGQ+1X13BvzIryog/g5tqBO8GWVS/Q358u1cpz9e1E7MsJyJS/oyNW/Uc7UPenq+
 +EWXh2mKZ4uWY3FARYDXweUxG//2y2jQv9s6nyJWh7yu0M1jHXSttfCKju/hQ1BB
@@ -54,139 +54,155 @@ ov2AcdIKsSj0PUdYkuB4fQRgvMBR/YwssESpgeA0YTdvp2HUHREASCTm1eLkSGHC
 B+Z3u2wNkkfipW4EhrzPUg==
 -----END PRIVATE KEY-----"#;
 
-    // Initialize crypto provider for tests
-    fn init_crypto() {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-    }
+// Initialize crypto provider for tests
+fn init_crypto() {
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+}
 
-    fn create_test_cert_file(dir: &Path, name: &str, content: &str) -> PathBuf {
-        let path = dir.join(name);
-        let mut file = std::fs::File::create(&path).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-        path
-    }
+fn create_test_cert_file(dir: &Path, name: &str, content: &str) -> PathBuf {
+    let path = dir.join(name);
+    let mut file = std::fs::File::create(&path).unwrap();
+    file.write_all(content.as_bytes()).unwrap();
+    path
+}
 
-    #[test]
-    fn test_validate_cert_path_valid() {
-        let temp_dir = TempDir::new().unwrap();
-        let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
+#[test]
+fn test_validate_cert_path_valid() {
+    let temp_dir = TempDir::new().unwrap();
+    let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
 
-        let result = validate_cert_path(&cert_file, "certificate");
-        assert!(result.is_ok());
-    }
+    let result = validate_cert_path(&cert_file, "certificate");
+    assert!(result.is_ok());
+}
 
-    #[test]
-    fn test_validate_cert_path_traversal() {
-        // Path traversal attempt (file doesn't exist, should fail)
-        let path = Path::new("../../../etc/passwd");
-        let result = validate_cert_path(path, "certificate");
-        assert!(result.is_err());
-    }
+#[test]
+fn test_validate_cert_path_traversal() {
+    // Path traversal attempt (file doesn't exist, should fail)
+    let path = Path::new("../../../etc/passwd");
+    let result = validate_cert_path(path, "certificate");
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_validate_cert_path_nonexistent() {
-        let path = Path::new("/nonexistent/cert.pem");
-        let result = validate_cert_path(path, "certificate");
-        assert!(result.is_err());
-    }
+#[test]
+fn test_validate_cert_path_nonexistent() {
+    let path = Path::new("/nonexistent/cert.pem");
+    let result = validate_cert_path(path, "certificate");
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_validate_cert_path_directory() {
-        let temp_dir = TempDir::new().unwrap();
-        let result = validate_cert_path(temp_dir.path(), "certificate");
-        assert!(result.is_err());
-    }
+#[test]
+fn test_validate_cert_path_directory() {
+    let temp_dir = TempDir::new().unwrap();
+    let result = validate_cert_path(temp_dir.path(), "certificate");
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_load_certificate_chain_success() {
-        let temp_dir = TempDir::new().unwrap();
-        let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
+#[test]
+fn test_load_certificate_chain_success() {
+    let temp_dir = TempDir::new().unwrap();
+    let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
 
-        let result = load_certificate_chain(&cert_file);
-        assert!(result.is_ok(), "Failed to load certificate: {:?}", result.err());
+    let result = load_certificate_chain(&cert_file);
+    assert!(
+        result.is_ok(),
+        "Failed to load certificate: {:?}",
+        result.err()
+    );
 
-        let certs = result.unwrap();
-        assert!(!certs.is_empty(), "No certificates loaded");
-    }
+    let certs = result.unwrap();
+    assert!(!certs.is_empty(), "No certificates loaded");
+}
 
-    #[test]
-    fn test_load_certificate_chain_invalid_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let invalid_file = create_test_cert_file(temp_dir.path(), "invalid.pem", "not a certificate");
+#[test]
+fn test_load_certificate_chain_invalid_file() {
+    let temp_dir = TempDir::new().unwrap();
+    let invalid_file = create_test_cert_file(temp_dir.path(), "invalid.pem", "not a certificate");
 
-        let result = load_certificate_chain(&invalid_file);
-        // The file exists and validates, but has no valid PEM certificates
-        // rustls_pemfile::certs() returns an empty Vec for files with no valid certs
-        // This is acceptable behavior - we get Ok(vec![])
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
-    }
+    let result = load_certificate_chain(&invalid_file);
+    // The file exists and validates, but has no valid PEM certificates
+    // rustls_pemfile::certs() returns an empty Vec for files with no valid certs
+    // This is acceptable behavior - we get Ok(vec![])
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_empty());
+}
 
-    #[test]
-    fn test_load_certificate_chain_path_traversal() {
-        let path = Path::new("../../../etc/passwd");
-        let result = load_certificate_chain(path);
-        assert!(result.is_err());
-    }
+#[test]
+fn test_load_certificate_chain_path_traversal() {
+    let path = Path::new("../../../etc/passwd");
+    let result = load_certificate_chain(path);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_load_private_key_success() {
-        let temp_dir = TempDir::new().unwrap();
-        let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
+#[test]
+fn test_load_private_key_success() {
+    let temp_dir = TempDir::new().unwrap();
+    let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
 
-        let result = load_private_key(&key_file);
-        assert!(result.is_ok(), "Failed to load private key: {:?}", result.err());
-    }
+    let result = load_private_key(&key_file);
+    assert!(
+        result.is_ok(),
+        "Failed to load private key: {:?}",
+        result.err()
+    );
+}
 
-    #[test]
-    fn test_load_private_key_invalid_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let invalid_file = create_test_cert_file(temp_dir.path(), "invalid.pem", "not a key");
+#[test]
+fn test_load_private_key_invalid_file() {
+    let temp_dir = TempDir::new().unwrap();
+    let invalid_file = create_test_cert_file(temp_dir.path(), "invalid.pem", "not a key");
 
-        let result = load_private_key(&invalid_file);
-        assert!(result.is_err());
-    }
+    let result = load_private_key(&invalid_file);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_load_private_key_path_traversal() {
-        let path = Path::new("../../../etc/shadow");
-        let result = load_private_key(path);
-        assert!(result.is_err());
-    }
+#[test]
+fn test_load_private_key_path_traversal() {
+    let path = Path::new("../../../etc/shadow");
+    let result = load_private_key(path);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_load_certified_key_success() {
-        init_crypto();
+#[test]
+fn test_load_certified_key_success() {
+    init_crypto();
 
-        let temp_dir = TempDir::new().unwrap();
-        let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
-        let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
+    let temp_dir = TempDir::new().unwrap();
+    let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
+    let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
 
-        let result = load_certified_key(&cert_file, &key_file, None);
-        assert!(result.is_ok(), "Failed to load certified key: {:?}", result.err());
-    }
+    let result = load_certified_key(&cert_file, &key_file, None);
+    assert!(
+        result.is_ok(),
+        "Failed to load certified key: {:?}",
+        result.err()
+    );
+}
 
-    #[test]
-    fn test_load_certified_key_mismatched() {
-        init_crypto();
+#[test]
+fn test_load_certified_key_mismatched() {
+    init_crypto();
 
-        let temp_dir = TempDir::new().unwrap();
-        let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
-        let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
+    let temp_dir = TempDir::new().unwrap();
+    let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
+    let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
 
-        // This should still succeed in loading, mismatch is detected later
-        let result = load_certified_key(&cert_file, &key_file, None);
-        assert!(result.is_ok());
-    }
+    // This should still succeed in loading, mismatch is detected later
+    let result = load_certified_key(&cert_file, &key_file, None);
+    assert!(result.is_ok());
+}
 
-    #[test]
-    fn test_build_server_config_success() {
-        init_crypto();
+#[test]
+fn test_build_server_config_success() {
+    init_crypto();
 
-        let temp_dir = TempDir::new().unwrap();
-        let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
-        let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
+    let temp_dir = TempDir::new().unwrap();
+    let cert_file = create_test_cert_file(temp_dir.path(), "cert.pem", TEST_CERT_PEM);
+    let key_file = create_test_cert_file(temp_dir.path(), "key.pem", TEST_KEY_PEM);
 
-        let result = build_server_config(&cert_file, &key_file, None);
-        assert!(result.is_ok(), "Failed to build server config: {:?}", result.err());
-    }
+    let result = build_server_config(&cert_file, &key_file, None);
+    assert!(
+        result.is_ok(),
+        "Failed to build server config: {:?}",
+        result.err()
+    );
+}

@@ -1,4 +1,4 @@
-use chimney::tls::acceptor::{build_tls_acceptor, SniResolver};
+use chimney::tls::acceptor::{SniResolver, build_tls_acceptor};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
 use std::sync::Arc;

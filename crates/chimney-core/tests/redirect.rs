@@ -2,7 +2,7 @@
 // These tests verify that the redirect service properly uses the host detection strategy
 
 use chimney::{
-    config::{Config, ConfigHandle, HostDetectionStrategy, HttpsConfig, Https},
+    config::{Config, ConfigHandle, HostDetectionStrategy, Https, HttpsConfig},
     filesystem::mock::MockFilesystem,
     server::{redirect::RedirectService, service::Service},
 };
@@ -111,16 +111,8 @@ fn test_multiple_sites_with_different_redirect_settings() {
     let site1_loaded = config.sites.find_by_hostname("site1.com").unwrap();
     let site2_loaded = config.sites.find_by_hostname("site2.com").unwrap();
 
-    assert!(site1_loaded
-        .https_config
-        .as_ref()
-        .unwrap()
-        .auto_redirect);
-    assert!(!site2_loaded
-        .https_config
-        .as_ref()
-        .unwrap()
-        .auto_redirect);
+    assert!(site1_loaded.https_config.as_ref().unwrap().auto_redirect);
+    assert!(!site2_loaded.https_config.as_ref().unwrap().auto_redirect);
 }
 
 #[test]

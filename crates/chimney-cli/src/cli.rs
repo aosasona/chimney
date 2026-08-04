@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use chimney::{
     config::{self, Config, Format, LogLevel, Site},
@@ -20,6 +24,12 @@ const DEFAULT_CONFIG_DIRS: [&str; 4] = [
     "~/.config/chimney/chimney.toml",
     "chimney.toml",
 ];
+
+fn resolve_cert_directory(config: &Config, cert_dir: Option<&Path>) -> PathBuf {
+    cert_dir
+        .map(|path| config.expand_home_path(path))
+        .unwrap_or_else(|| config.cert_directory())
+}
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
@@ -106,7 +116,11 @@ pub enum Commands {
         domains: Vec<String>,
 
         /// Email address for ACME account registration (falls back to config if not provided)
-        #[arg(short, long, help = "Email address for ACME account (uses config value if not provided)")]
+        #[arg(
+            short,
+            long,
+            help = "Email address for ACME account (uses config value if not provided)"
+        )]
         email: Option<String>,
 
         /// Directory to store certificates (falls back to config if not provided)
@@ -214,7 +228,11 @@ impl Cli {
                     return Err(CliError::Generic(format!(
                         "Site '{}' not found in configuration. Available sites: {:?}",
                         site_name,
-                        loaded_config.sites.into_iter().map(|(name, _)| name).collect::<Vec<_>>()
+                        loaded_config
+                            .sites
+                            .into_iter()
+                            .map(|(name, _)| name)
+                            .collect::<Vec<_>>()
                     )));
                 }
 
@@ -228,13 +246,7 @@ impl Cli {
                 })?;
 
                 // Get cert directory from CLI args or fall back to config
-                let cert_dir = cert_dir.clone().unwrap_or_else(|| {
-                    loaded_config
-                        .https
-                        .as_ref()
-                        .map(|h| h.cache_directory.clone())
-                        .unwrap_or_else(|| PathBuf::from(".chimney/certs"))
-                });
+                let cert_dir = resolve_cert_directory(&loaded_config, cert_dir.as_deref());
 
                 // Determine directory URL based on staging flag
                 let directory_url = if *staging {
@@ -507,5 +519,52 @@ impl Cli {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_cert_expands_cli_cert_directory() {
+        let home = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from)
+            .expect("HOME/USERPROFILE must be set for this test");
+        let cli = Cli::try_parse_from([
+            "chimney",
+            "request-cert",
+            "--site-name",
+            "example",
+            "--domain",
+            "example.com",
+            "--cert-dir",
+            "~/.chimney/certs",
+        ])
+        .expect("CLI arguments should parse");
+
+        let Commands::RequestCert { cert_dir, .. } = &cli.command else {
+            panic!("expected request-cert command");
+        };
+
+        assert_eq!(
+            resolve_cert_directory(&Config::default(), cert_dir.as_deref()),
+            home.join(".chimney/certs")
+        );
+    }
+
+    #[test]
+    fn request_cert_uses_config_directory_without_cli_override() {
+        let mut config = Config::default();
+        config.https = Some(chimney::config::HttpsConfig {
+            cache_directory: PathBuf::from("relative/certs"),
+            ..Default::default()
+        });
+
+        assert_eq!(
+            resolve_cert_directory(&config, None),
+            PathBuf::from("relative/certs")
+        );
     }
 }
