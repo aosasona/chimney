@@ -276,11 +276,47 @@ impl Config {
 // TLS certificate directory resolution
 impl Config {
     pub fn cert_directory(&self) -> PathBuf {
-        if let Some(https_config) = &self.https {
-            return https_config.cache_directory.clone();
+        self.https.as_ref().map_or_else(
+            || self.expand_home_path(HttpsConfig::default_cache_directory()),
+            |https_config| self.expand_home_path(&https_config.cache_directory),
+        )
+    }
+
+    /// Expands a leading `~` path component to the current user's home directory.
+    /// Paths without a home-directory prefix are returned unchanged.
+    pub fn expand_home_path(&self, path: impl AsRef<Path>) -> PathBuf {
+        let path = path.as_ref();
+        let Some(path_str) = path.to_str() else {
+            return path.to_path_buf();
+        };
+
+        let home_dir = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from))
+            .or_else(|| {
+                let drive = std::env::var_os("HOMEDRIVE")?;
+                let path = std::env::var_os("HOMEPATH")?;
+                let mut p = PathBuf::from(drive);
+                p.push(PathBuf::from(path));
+                Some(p)
+            });
+
+        let Some(home_dir) = home_dir else {
+            return path.to_path_buf();
+        };
+
+        if path_str == "~" {
+            return home_dir;
         }
 
-        PathBuf::from("~/.chimney/certs")
+        if let Some(stripped) = path_str
+            .strip_prefix("~/")
+            .or_else(|| path_str.strip_prefix("~\\"))
+        {
+            return home_dir.join(stripped);
+        }
+
+        path.to_path_buf()
     }
 }
 

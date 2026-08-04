@@ -106,7 +106,11 @@ pub enum Commands {
         domains: Vec<String>,
 
         /// Email address for ACME account registration (falls back to config if not provided)
-        #[arg(short, long, help = "Email address for ACME account (uses config value if not provided)")]
+        #[arg(
+            short,
+            long,
+            help = "Email address for ACME account (uses config value if not provided)"
+        )]
         email: Option<String>,
 
         /// Directory to store certificates (falls back to config if not provided)
@@ -214,7 +218,11 @@ impl Cli {
                     return Err(CliError::Generic(format!(
                         "Site '{}' not found in configuration. Available sites: {:?}",
                         site_name,
-                        loaded_config.sites.into_iter().map(|(name, _)| name).collect::<Vec<_>>()
+                        loaded_config
+                            .sites
+                            .into_iter()
+                            .map(|(name, _)| name)
+                            .collect::<Vec<_>>()
                     )));
                 }
 
@@ -228,13 +236,10 @@ impl Cli {
                 })?;
 
                 // Get cert directory from CLI args or fall back to config
-                let cert_dir = cert_dir.clone().unwrap_or_else(|| {
-                    loaded_config
-                        .https
-                        .as_ref()
-                        .map(|h| h.cache_directory.clone())
-                        .unwrap_or_else(|| PathBuf::from(".chimney/certs"))
-                });
+                let cert_dir = cert_dir
+                    .as_deref()
+                    .map(|path| loaded_config.expand_home_path(path))
+                    .unwrap_or_else(|| loaded_config.cert_directory());
 
                 // Determine directory URL based on staging flag
                 let directory_url = if *staging {

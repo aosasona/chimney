@@ -2,7 +2,8 @@
 // These tests verify that site.root is properly configured and handled
 // The actual path resolution logic is integration-tested with real filesystems
 
-use chimney::config::{Config, Site};
+use chimney::config::{Config, HttpsConfig, Site};
+use std::path::PathBuf;
 
 fn create_test_site_toml(root: &str, domain: &str) -> String {
     format!(
@@ -143,4 +144,50 @@ fn test_site_can_be_added_to_config() {
         let site = config.sites.find_by_hostname(&domain).unwrap();
         assert_eq!(site.root, format!("root{}", i));
     }
+}
+
+#[test]
+fn test_cert_directory_expands_home_prefix() {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .expect("HOME/USERPROFILE must be set for this test");
+
+    let mut config = Config::default();
+    config.https = Some(HttpsConfig {
+        enabled: true,
+        port: 8443,
+        cache_directory: PathBuf::from("~/.chimney/certs"),
+        acme_email: None,
+        acme_directory_url: "https://acme-v02.api.letsencrypt.org/directory".to_string(),
+    });
+
+    assert_eq!(config.cert_directory(), home.join(".chimney/certs"));
+}
+
+#[test]
+fn test_expand_home_path_supports_borrowed_paths() {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .expect("HOME/USERPROFILE must be set for this test");
+    let path = PathBuf::from("~/.chimney/certs");
+
+    let config = Config::default();
+    assert_eq!(config.expand_home_path(&path), home.join(".chimney/certs"));
+    assert_eq!(config.expand_home_path("~"), home);
+}
+
+#[test]
+fn test_cert_directory_keeps_non_home_paths() {
+    let mut config = Config::default();
+    config.https = Some(HttpsConfig {
+        enabled: true,
+        port: 8443,
+        cache_directory: PathBuf::from("/tmp/chimney-certs"),
+        acme_email: None,
+        acme_directory_url: "https://acme-v02.api.letsencrypt.org/directory".to_string(),
+    });
+
+    assert_eq!(config.cert_directory(), PathBuf::from("/tmp/chimney-certs"));
 }
