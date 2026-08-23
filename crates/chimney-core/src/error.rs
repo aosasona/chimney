@@ -69,6 +69,9 @@ pub enum ServerError {
     #[error("Failed to update configuration: {0}")]
     ConfigUpdateFailed(#[from] SendError<Arc<Config>>),
 
+    #[error("Configuration reload requires restarting the listeners: {0}")]
+    ReloadRequiresRestart(String),
+
     // TLS-related errors
     #[error("TLS handshake failed: {0}")]
     TlsHandshakeFailed(String),

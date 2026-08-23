@@ -28,28 +28,29 @@ impl SniResolver {
     pub fn is_empty(&self) -> bool {
         self.certs.is_empty()
     }
-}
 
-impl ResolvesServerCert for SniResolver {
-    fn resolve(&self, client_hello: rustls::server::ClientHello) -> Option<Arc<CertifiedKey>> {
-        let server_name = client_hello.server_name()?;
+    /// Resolve a certificate directly from an SNI server name.
+    pub fn resolve_server_name(&self, server_name: &str) -> Option<Arc<CertifiedKey>> {
         let domain = server_name.to_lowercase();
 
-        // Try exact match first
         if let Some(cert) = self.certs.get(&domain) {
             return Some(cert.clone());
         }
 
-        // Try wildcard match (e.g., *.example.com matches foo.example.com)
         let parts: Vec<&str> = domain.split('.').collect();
         if parts.len() >= 2 {
-            let wildcard = format!("*.{}", parts[1..].join("."));
-            if let Some(cert) = self.certs.get(&wildcard) {
-                return Some(cert.clone());
-            }
+            self.certs
+                .get(&format!("*.{}", parts[1..].join(".")))
+                .cloned()
+        } else {
+            None
         }
+    }
+}
 
-        None
+impl ResolvesServerCert for SniResolver {
+    fn resolve(&self, client_hello: rustls::server::ClientHello) -> Option<Arc<CertifiedKey>> {
+        self.resolve_server_name(client_hello.server_name()?)
     }
 }
 

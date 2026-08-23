@@ -61,6 +61,10 @@ pub use manual::load_certified_key;
 use std::{path::Path, sync::Arc};
 
 use log::{debug, info};
+use rustls::{
+    server::{ClientHello, ResolvesServerCert},
+    sign::CertifiedKey,
+};
 use tokio_rustls::TlsAcceptor;
 
 use crate::{
@@ -79,6 +83,25 @@ pub struct TlsManager {
     _config: Arc<Config>,
     sni_resolver: SniResolver,
     acme_manager: Option<AcmeManager>,
+}
+
+#[derive(Debug)]
+struct CombinedResolver {
+    manual: SniResolver,
+    acme: Arc<dyn ResolvesServerCert>,
+}
+
+impl ResolvesServerCert for CombinedResolver {
+    fn resolve(&self, hello: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+        if let Some(cert) = hello
+            .server_name()
+            .and_then(|name| self.manual.resolve_server_name(name))
+        {
+            Some(cert)
+        } else {
+            self.acme.resolve(hello)
+        }
+    }
 }
 
 impl TlsManager {
@@ -202,7 +225,24 @@ impl TlsManager {
 
     /// Get the ACME resolver if ACME is enabled
     pub fn acme_resolver(&self) -> Option<Arc<dyn rustls::server::ResolvesServerCert>> {
-        self.acme_manager.as_ref().map(|m| m.resolver())
+        self.acme_manager.as_ref().map(|manager| {
+            let acme = manager.resolver();
+            if self.sni_resolver.is_empty() {
+                acme
+            } else {
+                Arc::new(CombinedResolver {
+                    manual: self.sni_resolver.clone(),
+                    acme,
+                }) as Arc<dyn ResolvesServerCert>
+            }
+        })
+    }
+
+    /// Domains currently managed through ACME.
+    pub fn acme_domains(&self) -> &[String] {
+        self.acme_manager
+            .as_ref()
+            .map_or(&[], |manager| manager.domains())
     }
 
     /// Build a TLS acceptor with manual certificates only

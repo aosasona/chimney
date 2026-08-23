@@ -2,7 +2,10 @@ pub mod mimetype;
 pub mod redirect;
 pub mod service;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+};
 
 use hyper::server::conn::http1;
 use hyper_util::rt::TokioIo;
@@ -11,7 +14,7 @@ use log::{debug, error, info};
 use crate::{config::ConfigHandle, error::ServerError};
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::Notify,
+    sync::{Mutex, Notify},
 };
 use tokio_rustls::TlsAcceptor;
 
@@ -31,10 +34,16 @@ pub struct Server {
     service: service::Service,
 
     /// TLS manager for handling certificates and ACME (if TLS is enabled)
-    tls_manager: Option<Arc<crate::tls::TlsManager>>,
+    tls: RwLock<Option<TlsRuntime>>,
 
-    /// TLS acceptor with SNI support (if TLS is enabled)
-    tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>>,
+    /// Serializes transactional configuration reloads.
+    reload_lock: Mutex<()>,
+}
+
+#[derive(Clone)]
+struct TlsRuntime {
+    manager: Arc<crate::tls::TlsManager>,
+    manual_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>>,
 }
 
 impl Server {
@@ -65,8 +74,8 @@ impl Server {
             signal: Arc::new(Notify::new()),
             graceful_shutdown: true,
             service,
-            tls_manager: None,
-            tls_acceptor: None,
+            tls: RwLock::new(None),
+            reload_lock: Mutex::new(()),
         }
     }
 
@@ -106,7 +115,7 @@ impl Server {
         let service = service::Service::new(filesystem.clone(), config_handle.clone());
 
         // Initialize TLS if any site has HTTPS enabled
-        let (tls_manager, tls_acceptor) = if crate::tls::TlsManager::is_tls_enabled(&config) {
+        let tls = if crate::tls::TlsManager::is_tls_enabled(&config) {
             info!("TLS is enabled, initializing TLS manager");
             let manager = Arc::new(crate::tls::TlsManager::new(config).await?);
 
@@ -117,9 +126,12 @@ impl Server {
                 None
             };
 
-            (Some(manager), acceptor)
+            Some(TlsRuntime {
+                manager,
+                manual_acceptor: acceptor,
+            })
         } else {
-            (None, None)
+            None
         };
 
         Ok(Server {
@@ -127,9 +139,75 @@ impl Server {
             signal: Arc::new(Notify::new()),
             graceful_shutdown: true,
             service,
-            tls_manager,
-            tls_acceptor,
+            tls: RwLock::new(tls),
+            reload_lock: Mutex::new(()),
         })
+    }
+
+    /// Atomically reload routing, global settings, and TLS certificate state.
+    ///
+    /// TLS and manual certificate files are fully validated before the live
+    /// configuration is changed. Existing connections retain their current TLS
+    /// snapshot. Listener address, port, or HTTP/TLS topology changes require a
+    /// process restart because reload never binds a second listener.
+    pub async fn reload(&self, config: crate::config::Config) -> Result<(), ServerError> {
+        let _guard = self.reload_lock.lock().await;
+        let current = self.config_handle.get();
+        Self::validate_listener_compatibility(&current, &config)?;
+
+        let next_tls = if crate::tls::TlsManager::is_tls_enabled(&config) {
+            let manager = Arc::new(crate::tls::TlsManager::new(Arc::new(config.clone())).await?);
+            let manual_acceptor = if !manager.has_acme() && !manager.is_manual_empty() {
+                Some(manager.build_acceptor()?)
+            } else {
+                None
+            };
+            Some(TlsRuntime {
+                manager,
+                manual_acceptor,
+            })
+        } else {
+            None
+        };
+
+        // Publish TLS first so a newly routed hostname can never observe the old
+        // certificate resolver. Roll it back if the watch channel rejects the
+        // configuration update.
+        let previous_tls = {
+            let mut tls = self.tls.write().expect("TLS state lock poisoned");
+            std::mem::replace(&mut *tls, next_tls)
+        };
+        if let Err(error) = self.config_handle.set(config) {
+            *self.tls.write().expect("TLS state lock poisoned") = previous_tls;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    fn validate_listener_compatibility(
+        current: &crate::config::Config,
+        next: &crate::config::Config,
+    ) -> Result<(), ServerError> {
+        let current_tls = crate::tls::TlsManager::is_tls_enabled(current);
+        let next_tls = crate::tls::TlsManager::is_tls_enabled(next);
+        let current_https_port = current.https.as_ref().map(|https| https.port);
+        let next_https_port = next.https.as_ref().map(|https| https.port);
+        if current.host != next.host || current.port != next.port {
+            return Err(ServerError::ReloadRequiresRestart(
+                "HTTP host or port changed".to_string(),
+            ));
+        }
+        if current_tls != next_tls {
+            return Err(ServerError::ReloadRequiresRestart(
+                "HTTP/TLS listener topology changed".to_string(),
+            ));
+        }
+        if current_tls && current_https_port != next_https_port {
+            return Err(ServerError::ReloadRequiresRestart(
+                "HTTPS port changed".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn set_graceful_shutdown(&mut self, graceful: bool) {
@@ -179,7 +257,7 @@ impl Server {
 
         // Determine if we need dual listeners (HTTP + HTTPS)
         // Check for tls_manager to support both ACME and manual certificates
-        if self.tls_manager.is_some() {
+        if self.tls.read().expect("TLS state lock poisoned").is_some() {
             info!("TLS is enabled, starting dual listeners (HTTP + HTTPS)");
             self.run_dual_listeners().await
         } else {
@@ -339,10 +417,13 @@ impl Server {
         let (stream, addr) = connection.map_err(ServerError::FailedToAcceptConnection)?;
         debug!("Accepted HTTPS connection from {addr}");
 
-        let tls_manager = self
-            .tls_manager
-            .as_ref()
+        let tls = self
+            .tls
+            .read()
+            .expect("TLS state lock poisoned")
+            .clone()
             .ok_or(ServerError::TlsNotConfigured)?;
+        let tls_manager = tls.manager;
 
         // Use redirect service with is_https=true (won't redirect)
         let redirect_svc =
@@ -375,8 +456,8 @@ impl Server {
             });
         } else {
             // Manual certificate mode - use regular TLS acceptor
-            let tls_acceptor = self
-                .tls_acceptor
+            let tls_acceptor = tls
+                .manual_acceptor
                 .as_ref()
                 .ok_or(ServerError::TlsNotConfigured)?
                 .clone();
@@ -482,5 +563,192 @@ impl Server {
         TcpListener::bind(socket_addr)
             .await
             .map_err(ServerError::FailedToBind)
+    }
+}
+
+#[cfg(test)]
+mod reload_tests {
+    use super::*;
+    use crate::{
+        config::{Config, Https, SiteBuilder},
+        filesystem::mock::MockFilesystem,
+    };
+
+    fn http_config() -> Config {
+        let mut config = Config::default();
+        config.https = None;
+        config
+    }
+
+    fn server(config: Config) -> Server {
+        Server::new(Arc::new(MockFilesystem), config.into())
+    }
+
+    #[tokio::test]
+    async fn reload_adds_removes_and_updates_site_routing_in_http_mode() {
+        let initial = http_config();
+        let server = server(initial);
+
+        let mut added = http_config();
+        added
+            .sites
+            .add(
+                SiteBuilder::new("site")
+                    .domain("new.example")
+                    .root("v1")
+                    .build(),
+            )
+            .unwrap();
+        server.reload(added).await.unwrap();
+        assert_eq!(
+            server.config_handle.get().sites.get("site").unwrap().root,
+            "v1"
+        );
+
+        let mut updated = server.config_handle.get().as_ref().clone();
+        updated
+            .sites
+            .update(
+                SiteBuilder::new("site")
+                    .domain("new.example")
+                    .root("v2")
+                    .build(),
+            )
+            .unwrap();
+        server.reload(updated).await.unwrap();
+        assert_eq!(
+            server.config_handle.get().sites.get("site").unwrap().root,
+            "v2"
+        );
+
+        let mut removed = server.config_handle.get().as_ref().clone();
+        removed.sites.remove("site").unwrap();
+        server.reload(removed).await.unwrap();
+        assert!(server.config_handle.get().sites.get("site").is_none());
+        assert!(server.tls.read().unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn failed_reload_keeps_previous_configuration() {
+        let initial = http_config();
+        let original_port = initial.port;
+        let server = server(initial);
+        let mut incompatible = http_config();
+        incompatible.port = original_port + 1;
+
+        assert!(matches!(
+            server.reload(incompatible).await,
+            Err(ServerError::ReloadRequiresRestart(_))
+        ));
+        assert_eq!(server.config_handle.get().port, original_port);
+    }
+
+    #[tokio::test]
+    async fn reload_refreshes_acme_domains() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut initial = Config::default();
+        let https = initial.https.as_mut().unwrap();
+        https.acme_email = Some("admin@example.com".to_string());
+        https.cache_directory = temp.path().to_path_buf();
+        initial
+            .sites
+            .add(SiteBuilder::new("site").domain("old.example").build())
+            .unwrap();
+        let server = Server::new_with_tls(Arc::new(MockFilesystem), initial.into())
+            .await
+            .unwrap();
+
+        let mut next = server.config_handle.get().as_ref().clone();
+        next.sites
+            .update(SiteBuilder::new("site").domain("new.example").build())
+            .unwrap();
+        server.reload(next).await.unwrap();
+
+        let tls = server.tls.read().unwrap();
+        assert_eq!(
+            tls.as_ref().unwrap().manager.acme_domains(),
+            &["new.example"]
+        );
+    }
+
+    #[tokio::test]
+    async fn reload_refreshes_manual_certificates_and_rejects_invalid_files() {
+        let cert = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-https/localhost-cert.pem"
+        );
+        let key = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-https/localhost-key.pem"
+        );
+        let manual = || Https {
+            auto_redirect: true,
+            cert_file: Some(cert.to_string()),
+            key_file: Some(key.to_string()),
+            ca_file: None,
+        };
+        let mut initial = Config::default();
+        initial
+            .sites
+            .add(
+                SiteBuilder::new("site")
+                    .domain("old.example")
+                    .https(manual())
+                    .build(),
+            )
+            .unwrap();
+        let server = Server::new_with_tls(Arc::new(MockFilesystem), initial.into())
+            .await
+            .unwrap();
+
+        let mut refreshed = server.config_handle.get().as_ref().clone();
+        refreshed
+            .sites
+            .update(
+                SiteBuilder::new("site")
+                    .domain("new.example")
+                    .https(manual())
+                    .build(),
+            )
+            .unwrap();
+        server.reload(refreshed).await.unwrap();
+        assert!(
+            server
+                .tls
+                .read()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .manual_acceptor
+                .is_some()
+        );
+
+        let working = server.config_handle.get();
+        let mut invalid = working.as_ref().clone();
+        invalid
+            .sites
+            .update(
+                SiteBuilder::new("site")
+                    .domain("broken.example")
+                    .https(Https {
+                        auto_redirect: true,
+                        cert_file: Some("missing-cert.pem".to_string()),
+                        key_file: Some("missing-key.pem".to_string()),
+                        ca_file: None,
+                    })
+                    .build(),
+            )
+            .unwrap();
+        assert!(server.reload(invalid).await.is_err());
+        assert_eq!(
+            server
+                .config_handle
+                .get()
+                .sites
+                .get("site")
+                .unwrap()
+                .domain_names,
+            vec!["new.example"]
+        );
     }
 }
