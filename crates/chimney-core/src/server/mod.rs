@@ -1,6 +1,9 @@
+mod hooks;
 pub mod mimetype;
 pub mod redirect;
 pub mod service;
+
+pub use hooks::{RequestEvent, RequestProtocol};
 
 use std::{
     net::SocketAddr,
@@ -38,6 +41,9 @@ pub struct Server {
 
     /// Serializes transactional configuration reloads.
     reload_lock: Mutex<()>,
+
+    /// Callbacks invoked after a request response has been produced.
+    request_hooks: hooks::RequestHooks,
 }
 
 #[derive(Clone)]
@@ -76,6 +82,7 @@ impl Server {
             service,
             tls: RwLock::new(None),
             reload_lock: Mutex::new(()),
+            request_hooks: hooks::RequestHooks::default(),
         }
     }
 
@@ -141,7 +148,20 @@ impl Server {
             service,
             tls: RwLock::new(tls),
             reload_lock: Mutex::new(()),
+            request_hooks: hooks::RequestHooks::default(),
         })
+    }
+
+    /// Register a callback invoked after Chimney has produced each response.
+    ///
+    /// Hooks are shared by HTTP and HTTPS listeners, survive configuration
+    /// reloads, and are isolated from the request path if they panic. Keep hook
+    /// implementations short; for blocking I/O, send the event to a worker.
+    pub fn on_request<F>(&self, hook: F)
+    where
+        F: Fn(&RequestEvent) + Send + Sync + 'static,
+    {
+        self.request_hooks.add(hook);
     }
 
     /// Atomically reload routing, global settings, and TLS certificate state.
@@ -390,10 +410,12 @@ impl Server {
 
         // Always use redirect service - it will only redirect if TLS is enabled and auto_redirect is true
         let is_https = false;
-        let redirect_svc = redirect::RedirectService::new(
+        let redirect_svc = redirect::RedirectService::new_with_context(
             self.service.clone(),
             self.config_handle.clone(),
             is_https,
+            Some(addr),
+            self.request_hooks.clone(),
         );
 
         let conn = http1::Builder::new().serve_connection(io, redirect_svc);
@@ -426,8 +448,13 @@ impl Server {
         let tls_manager = tls.manager;
 
         // Use redirect service with is_https=true (won't redirect)
-        let redirect_svc =
-            redirect::RedirectService::new(self.service.clone(), self.config_handle.clone(), true);
+        let redirect_svc = redirect::RedirectService::new_with_context(
+            self.service.clone(),
+            self.config_handle.clone(),
+            true,
+            Some(addr),
+            self.request_hooks.clone(),
+        );
 
         if tls_manager.has_acme() {
             // ACME mode - use AcmeAcceptor for TLS-ALPN-01 challenge handling
@@ -571,8 +598,9 @@ mod reload_tests {
     use super::*;
     use crate::{
         config::{Config, Https, SiteBuilder},
-        filesystem::mock::MockFilesystem,
+        filesystem::{local::LocalFS, mock::MockFilesystem},
     };
+    use std::io::{Read, Write};
 
     fn http_config() -> Config {
         let mut config = Config::default();
@@ -750,5 +778,95 @@ mod reload_tests {
                 .domain_names,
             vec!["new.example"]
         );
+    }
+
+    fn send_http_request(port: u16, path: &str) -> String {
+        let mut stream = (0..50)
+            .find_map(|_| {
+                std::net::TcpStream::connect(("127.0.0.1", port))
+                    .ok()
+                    .or_else(|| {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                        None
+                    })
+            })
+            .expect("server did not start");
+        write!(
+            stream,
+            "GET {path} HTTP/1.1\r\nHost: hook.example\r\nUser-Agent: hook-test\r\nConnection: close\r\n\r\n"
+        )
+        .unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        response
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn request_hooks_observe_completed_real_http_requests() {
+        let temp = tempfile::tempdir().unwrap();
+        let public = temp.path().join("site/public");
+        std::fs::create_dir_all(&public).unwrap();
+        std::fs::write(public.join("index.html"), "hook response").unwrap();
+
+        let available = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = available.local_addr().unwrap().port();
+        drop(available);
+
+        let mut config = http_config();
+        config.host = "127.0.0.1".parse().unwrap();
+        config.port = port;
+        config.sites_directory = temp.path().display().to_string();
+        config
+            .sites
+            .add(
+                SiteBuilder::new("site")
+                    .domain("hook.example")
+                    .root("public")
+                    .build(),
+            )
+            .unwrap();
+
+        let filesystem = Arc::new(LocalFS::new(temp.path().to_path_buf()).unwrap());
+        let mut server = Server::new(filesystem, config.into());
+        server.set_graceful_shutdown(false);
+        let (events_tx, events_rx) = std::sync::mpsc::channel();
+        server.on_request(move |event| events_tx.send(event.clone()).unwrap());
+        let server = Arc::new(server);
+        let running = {
+            let server = server.clone();
+            tokio::spawn(async move { server.run().await })
+        };
+
+        let success = tokio::task::spawn_blocking(move || send_http_request(port, "/"));
+        let missing = tokio::task::spawn_blocking(move || send_http_request(port, "/missing"));
+        let (success, missing) = tokio::join!(success, missing);
+        let success = success.unwrap();
+        let missing = missing.unwrap();
+        assert!(success.starts_with("HTTP/1.1 200"));
+        assert!(missing.starts_with("HTTP/1.1 404"));
+
+        let first = events_rx
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .unwrap();
+        let second = events_rx
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .unwrap();
+        let mut statuses = [first.status, second.status];
+        statuses.sort_by_key(|status| status.as_u16());
+        assert_eq!(
+            statuses,
+            [hyper::StatusCode::OK, hyper::StatusCode::NOT_FOUND]
+        );
+        for event in [first, second] {
+            assert_eq!(event.method, hyper::Method::GET);
+            assert_eq!(event.host.as_deref(), Some("hook.example"));
+            assert_eq!(event.site.as_deref(), Some("site"));
+            assert_eq!(event.protocol, RequestProtocol::Http);
+            assert!(event.remote_addr.is_some());
+            assert_eq!(event.request_headers["user-agent"], "hook-test");
+            assert!(event.duration > std::time::Duration::ZERO);
+        }
+
+        running.abort();
     }
 }

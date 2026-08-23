@@ -1,6 +1,6 @@
 // HTTP→HTTPS redirect middleware
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc, time::Instant};
 
 use http_body_util::Full;
 use hyper::{
@@ -13,7 +13,10 @@ use log::debug;
 
 use crate::config::ConfigHandle;
 
-use super::service::Service;
+use super::{
+    hooks::{RequestEvent, RequestHooks, RequestProtocol},
+    service::Service,
+};
 
 /// Redirect service that wraps the main service and handles HTTP→HTTPS redirects
 #[derive(Clone)]
@@ -21,6 +24,8 @@ pub struct RedirectService {
     inner: Arc<Service>,
     config_handle: ConfigHandle,
     is_https: bool,
+    remote_addr: Option<SocketAddr>,
+    hooks: RequestHooks,
 }
 
 impl RedirectService {
@@ -30,6 +35,24 @@ impl RedirectService {
             inner: Arc::new(inner),
             config_handle,
             is_https,
+            remote_addr: None,
+            hooks: RequestHooks::default(),
+        }
+    }
+
+    pub(crate) fn new_with_context(
+        inner: Service,
+        config_handle: ConfigHandle,
+        is_https: bool,
+        remote_addr: Option<SocketAddr>,
+        hooks: RequestHooks,
+    ) -> Self {
+        Self {
+            inner: Arc::new(inner),
+            config_handle,
+            is_https,
+            remote_addr,
+            hooks,
         }
     }
 
@@ -59,54 +82,78 @@ impl HyperService<Request<Incoming>> for RedirectService {
         let inner = self.inner.clone();
         let config_handle = self.config_handle.clone();
         let is_https = self.is_https;
+        let remote_addr = self.remote_addr;
+        let hooks = self.hooks.clone();
 
         Box::pin(async move {
-            // Only redirect if this is an HTTP request (not HTTPS)
-            if is_https {
-                return inner.call(req).await;
-            }
+            let started = Instant::now();
+            let method = req.method().clone();
+            let uri = req.uri().clone();
+            let request_headers = req.headers().clone();
+            let resolved_host = inner
+                .resolve_host(req.headers())
+                .await
+                .ok()
+                .map(|host| host.host);
+            let site = resolved_host.as_deref().and_then(|host| {
+                config_handle
+                    .get()
+                    .sites
+                    .find_by_hostname(host)
+                    .map(|site| site.name.clone())
+            });
 
-            // Resolve the host using the configured strategy
-            let resolved = match inner.resolve_host(req.headers()).await {
-                Ok(resolved) => resolved,
-                Err(_) => {
-                    // If we can't resolve the host, just pass through to inner service
-                    return inner.call(req).await;
+            // Only redirect if this is an HTTP request (not HTTPS)
+            let response = if is_https {
+                inner.call(req).await
+            } else {
+                let config = config_handle.get();
+                let global_https_enabled = config
+                    .https
+                    .as_ref()
+                    .map(|https| https.enabled)
+                    .unwrap_or(false);
+                let should_redirect = global_https_enabled
+                    && resolved_host.as_deref().is_some_and(|host| {
+                        config.sites.find_by_hostname(host).is_some_and(|site| {
+                            site.https_config
+                                .as_ref()
+                                .map(|https| https.auto_redirect)
+                                .unwrap_or(true)
+                        })
+                    });
+
+                if should_redirect {
+                    Ok(Self::build_redirect_response(
+                        &req,
+                        resolved_host
+                            .as_deref()
+                            .expect("resolved host checked above"),
+                    ))
+                } else {
+                    inner.call(req).await
                 }
             };
 
-            // Check if global HTTPS is enabled and site has auto_redirect enabled
-            let config = config_handle.get();
-
-            // Global HTTPS must be enabled
-            let global_https_enabled = config
-                .https
-                .as_ref()
-                .map(|https| https.enabled)
-                .unwrap_or(false);
-
-            if !global_https_enabled {
-                return inner.call(req).await;
+            if let Ok(response) = &response {
+                hooks.notify(&RequestEvent {
+                    method,
+                    uri,
+                    request_headers,
+                    host: resolved_host,
+                    site,
+                    status: response.status(),
+                    response_headers: response.headers().clone(),
+                    duration: started.elapsed(),
+                    remote_addr,
+                    protocol: if is_https {
+                        RequestProtocol::Https
+                    } else {
+                        RequestProtocol::Http
+                    },
+                });
             }
-
-            // Check site-specific auto_redirect (defaults to true)
-            let should_redirect = if let Some(site) = config.sites.find_by_hostname(&resolved.host)
-            {
-                site.https_config
-                    .as_ref()
-                    .map(|https| https.auto_redirect)
-                    .unwrap_or(true) // Default to true when no site-specific config
-            } else {
-                // Site not found, don't redirect
-                false
-            };
-
-            if should_redirect {
-                let response = Self::build_redirect_response(&req, &resolved.host);
-                Ok(response)
-            } else {
-                inner.call(req).await
-            }
+            response
         })
     }
 }
